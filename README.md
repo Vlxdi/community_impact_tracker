@@ -1,5 +1,5 @@
 # Community Impact Tracker
-*### Diploma project*
+### Diploma project
 
 ## Overview
 The Community Impact Tracker is a mobile/web app designed to track and encourage community service efforts. Users can log their hours, complete tasks, earn points, and exchange them for rewards. It's built to motivate individuals to get involved in their community by adding a competitive, rewarding, and fun element to giving back.
