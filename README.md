@@ -22,3 +22,6 @@ The Community Impact Tracker is a mobile/web app designed to track and encourage
 **Flutter:** Frontend framework for building cross-platform mobile apps.
 **Dart:** The programming language used with Flutter.
 **Backend:** Firebase to store user data, service logs, and rewards.
+
+# Early prototypes
+![CIT_PrototypeDesign-Event_Page](https://github.com/user-attachments/assets/84d79cde-c873-40ec-becf-74ec4f5f0f9e)
