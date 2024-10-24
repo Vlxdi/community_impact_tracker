@@ -33,7 +33,7 @@ class _ProfilePageState extends State<ProfilePage> {
         context: context,
         builder: (BuildContext context) {
           return AlertDialog(
-            title: Text("Profile Picture"),
+            title: Text("Change picture?"),
             content: Text(
                 "Do you want to change your profile picture or leave it as is?"),
             actions: [
@@ -95,16 +95,17 @@ class _ProfilePageState extends State<ProfilePage> {
               SizedBox(height: 20),
 
               // Profile information with icons
-              Center(
+              const Center(
                 child: Column(
                   children: [
                     Row(
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
-                        Icon(Icons.star, color: Colors.yellow, size: 30),
+                        Icon(Icons.keyboard_double_arrow_up_rounded,
+                            color: Colors.green, size: 30),
                         SizedBox(width: 10),
                         Text(
-                          "Level: 10",
+                          "Level 10",
                           style: TextStyle(
                               fontSize: 18, fontWeight: FontWeight.bold),
                         ),
@@ -114,11 +115,10 @@ class _ProfilePageState extends State<ProfilePage> {
                     Row(
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
-                        Icon(Icons.account_balance_wallet,
-                            color: Colors.green, size: 30),
+                        Icon(Icons.account_balance_wallet_rounded, size: 30),
                         SizedBox(width: 10),
                         Text(
-                          "Wallet Balance: 500 Points",
+                          "Wallet Balance: 500",
                           style: TextStyle(
                               fontSize: 18, fontWeight: FontWeight.bold),
                         ),
@@ -143,6 +143,7 @@ class _ProfilePageState extends State<ProfilePage> {
                     BadgeWidget(badgeName: "Community Star"),
                     BadgeWidget(badgeName: "Volunteer Leader"),
                     BadgeWidget(badgeName: "Helping Hand"),
+                    BadgeWidget(badgeName: "feedback giver"),
                   ],
                 ),
               ),
