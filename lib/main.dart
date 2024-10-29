@@ -33,10 +33,10 @@ class AuthenticationWrapper extends StatelessWidget {
           return Center(child: CircularProgressIndicator());
         }
         if (snapshot.hasData) {
-          // If the user is already logged in, show the profile page
-          return MainPage();
+          // User is logged in, navigate to MainPage
+          return MainPage(initialIndex: 3); // Start at the ProfilePage
         }
-        // Otherwise, show the login page
+        // User is not logged in, navigate to LoginPage
         return LoginPage();
       },
     );
@@ -44,19 +44,29 @@ class AuthenticationWrapper extends StatelessWidget {
 }
 
 class MainPage extends StatefulWidget {
+  final int initialIndex; // Accept initial index
+
+  MainPage({this.initialIndex = 0}); // Default to 0 if not provided
+
   @override
   _MainPageState createState() => _MainPageState();
 }
 
 class _MainPageState extends State<MainPage> {
-  int _selectedIndex = 0;
+  late int _selectedIndex;
 
   final List<Widget> _pages = <Widget>[
     Center(child: Text('This is the Events Page')),
     Center(child: Text('This is the Shop Page')),
     Center(child: Text('This is the Leaderboard Page')),
-    ProfilePage(),
+    ProfilePage(), // ProfilePage included
   ];
+
+  @override
+  void initState() {
+    super.initState();
+    _selectedIndex = widget.initialIndex; // Use initialIndex passed in
+  }
 
   void _onItemTapped(int index) {
     setState(() {

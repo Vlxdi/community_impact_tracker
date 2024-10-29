@@ -1,4 +1,4 @@
-// profile.dart
+import 'package:community_impact_tracker/settings.dart';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import 'dart:io';
@@ -23,38 +23,32 @@ class _ProfilePageState extends State<ProfilePage> {
     }
   }
 
-  // Function to show a dialog for changing the profile picture
   void _showProfilePictureDialog() {
-    if (_profileImage == null) {
-      _pickImage(); // If no profile picture is selected yet, allow the user to choose one
-    } else {
-      // If the user already has a profile picture, show the dialog
-      showDialog(
-        context: context,
-        builder: (BuildContext context) {
-          return AlertDialog(
-            title: Text("Change picture?"),
-            content: Text(
-                "Do you want to change your profile picture or leave it as is?"),
-            actions: [
-              TextButton(
-                child: Text("Leave it"),
-                onPressed: () {
-                  Navigator.of(context).pop();
-                },
-              ),
-              TextButton(
-                child: Text("Change it"),
-                onPressed: () {
-                  Navigator.of(context).pop();
-                  _pickImage(); // Let the user select a new image
-                },
-              ),
-            ],
-          );
-        },
-      );
-    }
+    showDialog(
+      context: context,
+      builder: (BuildContext context) {
+        return AlertDialog(
+          title: Text("Change picture?"),
+          content: Text(
+              "Do you want to change your profile picture or leave it as is?"),
+          actions: [
+            TextButton(
+              child: Text("Leave it"),
+              onPressed: () {
+                Navigator.of(context).pop();
+              },
+            ),
+            TextButton(
+              child: Text("Change it"),
+              onPressed: () {
+                Navigator.of(context).pop();
+                _pickImage();
+              },
+            ),
+          ],
+        );
+      },
+    );
   }
 
   @override
@@ -66,8 +60,8 @@ class _ProfilePageState extends State<ProfilePage> {
           IconButton(
             icon: Icon(Icons.settings),
             onPressed: () {
-              // Navigate to the settings page when pressed
-              // Navigator.push(context, MaterialPageRoute(builder: (context) => SettingsPage()));
+              Navigator.push(context,
+                  MaterialPageRoute(builder: (context) => SettingsPage()));
             },
           )
         ],
@@ -81,20 +75,22 @@ class _ProfilePageState extends State<ProfilePage> {
               // Profile picture with click action
               Center(
                 child: GestureDetector(
-                  onTap:
-                      _showProfilePictureDialog, // Show dialog when profile picture is tapped
+                  onTap: _showProfilePictureDialog,
                   child: CircleAvatar(
                     radius: 50,
                     backgroundImage: _profileImage != null
                         ? FileImage(_profileImage!)
-                        : AssetImage('assets/default_profile_pic.jpg')
-                            as ImageProvider, // Use default image if none is selected
+                        : null,
+                    child: _profileImage == null
+                        ? Icon(Icons.person_2_rounded,
+                            size: 70, color: Colors.grey)
+                        : null,
                   ),
                 ),
               ),
               SizedBox(height: 20),
 
-              // Profile information with icons
+              // User level and wallet balance
               const Center(
                 child: Column(
                   children: [
@@ -104,11 +100,9 @@ class _ProfilePageState extends State<ProfilePage> {
                         Icon(Icons.keyboard_double_arrow_up_rounded,
                             color: Colors.green, size: 30),
                         SizedBox(width: 10),
-                        Text(
-                          "Level 10",
-                          style: TextStyle(
-                              fontSize: 18, fontWeight: FontWeight.bold),
-                        ),
+                        Text("Level 10",
+                            style: TextStyle(
+                                fontSize: 18, fontWeight: FontWeight.bold)),
                       ],
                     ),
                     SizedBox(height: 10),
@@ -117,11 +111,9 @@ class _ProfilePageState extends State<ProfilePage> {
                       children: [
                         Icon(Icons.account_balance_wallet_rounded, size: 30),
                         SizedBox(width: 10),
-                        Text(
-                          "Wallet Balance: 500",
-                          style: TextStyle(
-                              fontSize: 18, fontWeight: FontWeight.bold),
-                        ),
+                        Text("Wallet Balance: 500",
+                            style: TextStyle(
+                                fontSize: 18, fontWeight: FontWeight.bold)),
                       ],
                     ),
                   ],
@@ -130,30 +122,30 @@ class _ProfilePageState extends State<ProfilePage> {
               SizedBox(height: 30),
 
               // Badges section
-              Text(
-                "Badges",
-                style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
-              ),
+              Text("Badges",
+                  style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
               SizedBox(height: 10),
               Container(
                 height: 100,
-                child: ListView(
+                child: SingleChildScrollView(
                   scrollDirection: Axis.horizontal,
-                  children: <Widget>[
-                    BadgeWidget(badgeName: "Community Star"),
-                    BadgeWidget(badgeName: "Volunteer Leader"),
-                    BadgeWidget(badgeName: "Helping Hand"),
-                    BadgeWidget(badgeName: "feedback giver"),
-                  ],
+                  child: Wrap(
+                    spacing: 8.0,
+                    children: <Widget>[
+                      BadgeWidget(badgeName: "Community Star"),
+                      BadgeWidget(badgeName: "Volunteer Leader"),
+                      BadgeWidget(badgeName: "Helping Hand"),
+                      BadgeWidget(badgeName: "Feedback Giver"),
+                    ],
+                  ),
                 ),
               ),
+
               SizedBox(height: 20),
 
               // Achievements section
-              Text(
-                "Achievements",
-                style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
-              ),
+              Text("Achievements",
+                  style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
               SizedBox(height: 10),
               Column(
                 children: [
@@ -179,7 +171,7 @@ class BadgeWidget extends StatelessWidget {
   Widget build(BuildContext context) {
     return Container(
       width: 80,
-      margin: EdgeInsets.symmetric(horizontal: 8),
+      height: 80,
       decoration: BoxDecoration(
         color: Colors.blueAccent,
         borderRadius: BorderRadius.circular(10),
