@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'main.dart';
 
 class LoginPage extends StatefulWidget {
@@ -9,27 +10,56 @@ class LoginPage extends StatefulWidget {
 
 class _LoginPageState extends State<LoginPage> {
   final FirebaseAuth _auth = FirebaseAuth.instance;
+  final FirebaseFirestore _firestore = FirebaseFirestore.instance;
+  String _username = '';
   String _email = '';
   String _password = '';
+  //add phone registering later
   String _phone = '';
   String _verificationId = '';
   bool _isRegistering = false;
 
   void _register() async {
     try {
-      await _auth.createUserWithEmailAndPassword(
-          email: _email, password: _password);
+      UserCredential userCredential =
+          await _auth.createUserWithEmailAndPassword(
+        email: _email,
+        password: _password,
+      );
+
       if (mounted) {
+        await _firestore.collection('users').doc(userCredential.user?.uid).set({
+          'username': _username,
+          'email': _email,
+        });
+
+        // Directly sign the user in
+        await _auth.signInWithEmailAndPassword(
+          email: _email,
+          password: _password,
+        );
+
         Navigator.pushReplacement(
           context,
           MaterialPageRoute(builder: (context) => MainPage(initialIndex: 3)),
         );
       }
-    } catch (e) {
-      print(e);
-      if (mounted) {
+    } on FirebaseAuthException catch (e) {
+      if (!mounted) return; // Prevent showing a snackbar if unmounted
+      if (e.code == 'email-already-in-use') {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+              content: Text('The email is already registered. Please log in.')),
+        );
+      } else {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text('Registration failed')),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('An error occurred.')),
         );
       }
     }
@@ -37,16 +67,29 @@ class _LoginPageState extends State<LoginPage> {
 
   void _login() async {
     try {
-      await _auth.signInWithEmailAndPassword(
+      UserCredential userCredential = await _auth.signInWithEmailAndPassword(
           email: _email, password: _password);
-      if (mounted) {
+
+      // Retrieve username
+      final userDoc = await _firestore
+          .collection('users')
+          .doc(userCredential.user?.uid)
+          .get();
+      if (userDoc.exists && mounted) {
+        setState(() {
+          _username = userDoc.data()?['username'] ?? '';
+        });
+
         Navigator.pushReplacement(
           context,
           MaterialPageRoute(builder: (context) => MainPage(initialIndex: 3)),
         );
+      } else if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('User data not found.')),
+        );
       }
     } catch (e) {
-      print(e);
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
@@ -137,17 +180,19 @@ class _LoginPageState extends State<LoginPage> {
                 ),
                 child: Column(
                   children: [
-                    TextField(
-                      decoration: InputDecoration(
-                        hintText: 'Full Name',
-                        border: InputBorder.none,
+                    // New username field
+                    if (_isRegistering)
+                      TextField(
+                        decoration: InputDecoration(
+                          hintText: 'Username',
+                          border: InputBorder.none,
+                        ),
+                        onChanged: (value) {
+                          setState(() {
+                            _username = value;
+                          });
+                        },
                       ),
-                      onChanged: (value) {
-                        setState(() {
-                          _email = value;
-                        });
-                      },
-                    ),
                     Divider(),
                     TextField(
                       decoration: InputDecoration(
