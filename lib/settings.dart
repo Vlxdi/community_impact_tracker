@@ -1,3 +1,4 @@
+import 'package:community_impact_tracker/account_settings.dart';
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'login.dart'; // Ensure this imports the correct login page
@@ -19,8 +20,16 @@ class SettingsPage extends StatelessWidget {
             title: const Text('Account'),
             subtitle: const Text('Manage your account settings'),
             trailing: const Icon(Icons.arrow_forward_ios),
-            onTap: () {
-              // Add navigation to account settings
+            onTap: () async {
+              bool? accountUpdated = await Navigator.push(
+                context,
+                MaterialPageRoute(builder: (context) => AccountSettingsPage()),
+              );
+
+              // Pass the signal back to ProfilePage if account settings were updated
+              if (accountUpdated == true) {
+                Navigator.pop(context, true); // Send true back to ProfilePage
+              }
             },
           ),
           SwitchListTile(

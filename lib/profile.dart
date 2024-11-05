@@ -1,4 +1,5 @@
 import 'dart:io';
+import 'package:community_impact_tracker/settings.dart';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:path_provider/path_provider.dart';
@@ -134,10 +135,19 @@ class _ProfilePageState extends State<ProfilePage> {
         actions: [
           IconButton(
             icon: Icon(Icons.settings),
-            onPressed: () {
-              // Add your settings navigation here
+            onPressed: () async {
+              // Wait for a refresh signal from SettingsPage
+              bool? shouldRefresh = await Navigator.push(
+                context,
+                MaterialPageRoute(builder: (context) => SettingsPage()),
+              );
+
+              // Refresh the profile if necessary
+              if (shouldRefresh == true) {
+                _fetchUsername(); // Re-fetch the username from Firestore
+              }
             },
-          )
+          ),
         ],
       ),
       body: SingleChildScrollView(
