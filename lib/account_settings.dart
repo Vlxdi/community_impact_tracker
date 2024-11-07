@@ -34,23 +34,18 @@ class _AccountSettingsPageState extends State<AccountSettingsPage> {
     try {
       final user = _auth.currentUser;
       if (user != null) {
-        // Update display name in FirebaseAuth
         await user.updateDisplayName(_displayNameController.text);
-
-        // Update the display name in Firestore under 'users' collection
         await FirebaseFirestore.instance
             .collection('users')
             .doc(user.uid)
             .update({'username': _displayNameController.text});
 
-        // Reload user to refresh local data
         await user.reload();
 
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('Profile updated successfully!')),
         );
 
-        // Return true on successful update to trigger a refresh on profile page
         Navigator.pop(context, true);
       }
     } catch (e) {
@@ -64,7 +59,6 @@ class _AccountSettingsPageState extends State<AccountSettingsPage> {
     try {
       final user = _auth.currentUser;
       if (user != null) {
-        // Reauthenticate with the current password
         final cred = EmailAuthProvider.credential(
           email: user.email!,
           password: _passwordController.text,
@@ -89,7 +83,6 @@ class _AccountSettingsPageState extends State<AccountSettingsPage> {
 
   @override
   void dispose() {
-    // Dispose controllers to free up resources
     _displayNameController.dispose();
     _emailController.dispose();
     _passwordController.dispose();

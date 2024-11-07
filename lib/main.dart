@@ -1,18 +1,18 @@
+import 'package:community_impact_tracker/events_page.dart';
 import 'package:flutter/material.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_auth/firebase_auth.dart';
-import 'package:cloud_firestore/cloud_firestore.dart'; // Import Firestore
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'login.dart';
 import 'profile.dart';
 import 'firebase_options.dart';
 
 void main() async {
-  WidgetsFlutterBinding.ensureInitialized(); // Initialize binding here
+  WidgetsFlutterBinding.ensureInitialized();
   await Firebase.initializeApp(
     options: DefaultFirebaseOptions.currentPlatform,
   );
 
-  // Enable logging and set caching for Firestore
   FirebaseFirestore.instance.settings = Settings(
     persistenceEnabled: true,
     cacheSizeBytes: Settings.CACHE_SIZE_UNLIMITED,
@@ -40,11 +40,24 @@ class AuthenticationWrapper extends StatelessWidget {
         if (snapshot.connectionState == ConnectionState.waiting) {
           return Center(child: CircularProgressIndicator());
         }
+
         if (snapshot.hasData) {
-          // User is logged in, navigate to MainPage
-          return MainPage(initialIndex: 3); // Start at the ProfilePage
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            Navigator.pushReplacement(
+              context,
+              MaterialPageRoute(
+                builder: (context) => MainPage(
+                  initialIndex: snapshot.data!.metadata.creationTime ==
+                          snapshot.data!.metadata.lastSignInTime
+                      ? 3
+                      : 0,
+                ),
+              ),
+            );
+          });
+          return SizedBox.shrink();
         }
-        // User is not logged in, navigate to LoginPage
+
         return LoginPage();
       },
     );
@@ -52,9 +65,9 @@ class AuthenticationWrapper extends StatelessWidget {
 }
 
 class MainPage extends StatefulWidget {
-  final int initialIndex; // Accept initial index
+  final int initialIndex;
 
-  MainPage({this.initialIndex = 0}); // Default to 0 if not provided
+  MainPage({this.initialIndex = 0});
 
   @override
   _MainPageState createState() => _MainPageState();
@@ -64,16 +77,16 @@ class _MainPageState extends State<MainPage> {
   late int _selectedIndex;
 
   final List<Widget> _pages = <Widget>[
-    Center(child: Text('This is the Events Page')),
+    EventsPage(),
     Center(child: Text('This is the Shop Page')),
     Center(child: Text('This is the Leaderboard Page')),
-    ProfilePage(), // ProfilePage included
+    ProfilePage(),
   ];
 
   @override
   void initState() {
     super.initState();
-    _selectedIndex = widget.initialIndex; // Use initialIndex passed in
+    _selectedIndex = widget.initialIndex;
   }
 
   void _onItemTapped(int index) {

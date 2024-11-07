@@ -1,7 +1,7 @@
 import 'package:community_impact_tracker/account_settings.dart';
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
-import 'login.dart'; // Ensure this imports the correct login page
+import 'login.dart';
 
 class SettingsPage extends StatelessWidget {
   const SettingsPage({super.key});
@@ -25,17 +25,15 @@ class SettingsPage extends StatelessWidget {
                 context,
                 MaterialPageRoute(builder: (context) => AccountSettingsPage()),
               );
-
-              // Pass the signal back to ProfilePage if account settings were updated
               if (accountUpdated == true) {
-                Navigator.pop(context, true); // Send true back to ProfilePage
+                Navigator.pop(context, true);
               }
             },
           ),
           SwitchListTile(
             title: const Text('Notifications'),
             subtitle: const Text('Enable notifications'),
-            value: true, // Change this to a stateful variable if needed
+            value: true,
             onChanged: (bool value) {
               // Handle notification toggle
             },
@@ -43,7 +41,7 @@ class SettingsPage extends StatelessWidget {
           SwitchListTile(
             title: const Text('Dark Mode'),
             subtitle: const Text('Use dark theme'),
-            value: false, // Change this to a stateful variable if needed
+            value: false,
             onChanged: (bool value) {
               // Handle dark mode toggle
             },
@@ -71,9 +69,9 @@ class SettingsPage extends StatelessWidget {
             title: const Text('Logout'),
             onTap: () async {
               await FirebaseAuth.instance.signOut();
-              // Navigate back to the login page
-              Navigator.of(context).pushReplacement(
+              Navigator.of(context).pushAndRemoveUntil(
                 MaterialPageRoute(builder: (context) => LoginPage()),
+                (route) => false,
               );
             },
           ),

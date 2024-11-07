@@ -14,7 +14,7 @@ class ProfilePage extends StatefulWidget {
 class _ProfilePageState extends State<ProfilePage> {
   final FirebaseAuth _auth = FirebaseAuth.instance;
   final ImagePicker _picker = ImagePicker();
-  ImageProvider<Object>? _profileImage; // Local profile image
+  ImageProvider<Object>? _profileImage;
   String _username = "Loading...";
   String? _imagePath;
 
@@ -22,7 +22,7 @@ class _ProfilePageState extends State<ProfilePage> {
   void initState() {
     super.initState();
     _fetchUsername();
-    _loadProfileImage(); // Load the local profile image
+    _loadProfileImage();
   }
 
   Future<void> _fetchUsername() async {
@@ -55,12 +55,13 @@ class _ProfilePageState extends State<ProfilePage> {
     }
   }
 
-  // Load the profile image from local storage
   Future<void> _loadProfileImage() async {
     final directory = await getApplicationDocumentsDirectory();
     final filePath = '${directory.path}/profile_picture.png';
 
     if (await File(filePath).exists()) {
+      FileImage(File(filePath)).evict();
+
       setState(() {
         _profileImage = FileImage(File(filePath));
         _imagePath = filePath;
@@ -68,27 +69,29 @@ class _ProfilePageState extends State<ProfilePage> {
     }
   }
 
-  // Pick an image and save it locally
   Future<void> _pickImage() async {
     final XFile? pickedFile =
         await _picker.pickImage(source: ImageSource.gallery);
     if (pickedFile != null) {
       File image = File(pickedFile.path);
       await _saveProfileImage(image);
+
+      await _loadProfileImage();
     }
   }
 
-  // Save the profile image locally on the device
   Future<void> _saveProfileImage(File image) async {
     final directory = await getApplicationDocumentsDirectory();
     final filePath = '${directory.path}/profile_picture.png';
 
     try {
-      // Copy the selected image to the app's local directory
       final localImage = await image.copy(filePath);
 
+      // Evict any cached image with this path before setting the new image
+      FileImage(File(filePath)).evict();
+
       setState(() {
-        _profileImage = FileImage(localImage);
+        _profileImage = FileImage(localImage); // Load the new image
         _imagePath = filePath;
       });
     } catch (e) {
@@ -136,15 +139,12 @@ class _ProfilePageState extends State<ProfilePage> {
           IconButton(
             icon: Icon(Icons.settings),
             onPressed: () async {
-              // Wait for a refresh signal from SettingsPage
               bool? shouldRefresh = await Navigator.push(
                 context,
                 MaterialPageRoute(builder: (context) => SettingsPage()),
               );
-
-              // Refresh the profile if necessary
               if (shouldRefresh == true) {
-                _fetchUsername(); // Re-fetch the username from Firestore
+                _fetchUsername();
               }
             },
           ),
@@ -159,14 +159,44 @@ class _ProfilePageState extends State<ProfilePage> {
               Center(
                 child: GestureDetector(
                   onTap: _showProfilePictureDialog,
-                  child: CircleAvatar(
-                    radius: 50,
-                    backgroundImage:
-                        _profileImage, // Load local image if available
-                    child: _profileImage == null
-                        ? Icon(Icons.person_2_rounded,
-                            size: 70, color: Colors.grey)
-                        : null,
+                  child: Stack(
+                    children: [
+                      CircleAvatar(
+                        radius: 50,
+                        backgroundImage: _profileImage,
+                        child: _profileImage == null
+                            ? Icon(Icons.person_2_rounded,
+                                size: 70, color: Colors.grey)
+                            : null,
+                      ),
+                      Positioned(
+                        bottom: 0,
+                        right: 0,
+                        width: 25,
+                        height: 25,
+                        child: Container(
+                          padding: EdgeInsets.all(4),
+                          decoration: BoxDecoration(
+                            color: Colors.grey,
+                            shape: BoxShape.circle,
+                            boxShadow: [
+                              BoxShadow(
+                                color: const Color.fromARGB(255, 112, 112, 112)
+                                    .withOpacity(0.4),
+                                spreadRadius: 1,
+                                blurRadius: 0.5,
+                                offset:
+                                    Offset(0, 2), // Move shadow slightly down
+                              ),
+                            ],
+                          ),
+                          child: Icon(
+                            Icons.cameraswitch_rounded,
+                            size: 15,
+                          ),
+                        ),
+                      ),
+                    ],
                   ),
                 ),
               ),
