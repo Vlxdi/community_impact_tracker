@@ -1,4 +1,5 @@
 import 'package:community_impact_tracker/events_page.dart';
+import 'package:firebase_storage/firebase_storage.dart';
 import 'package:flutter/material.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_auth/firebase_auth.dart';
@@ -12,7 +13,7 @@ void main() async {
   await Firebase.initializeApp(
     options: DefaultFirebaseOptions.currentPlatform,
   );
-
+  //FirebaseStorage.instanceFor(bucket: 'your-project-id.appspot.com');
   FirebaseFirestore.instance.settings = Settings(
     persistenceEnabled: true,
     cacheSizeBytes: Settings.CACHE_SIZE_UNLIMITED,
@@ -22,6 +23,8 @@ void main() async {
 }
 
 class MyApp extends StatelessWidget {
+  const MyApp({super.key});
+
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
@@ -32,6 +35,8 @@ class MyApp extends StatelessWidget {
 }
 
 class AuthenticationWrapper extends StatelessWidget {
+  const AuthenticationWrapper({super.key});
+
   @override
   Widget build(BuildContext context) {
     return StreamBuilder<User?>(
@@ -67,7 +72,7 @@ class AuthenticationWrapper extends StatelessWidget {
 class MainPage extends StatefulWidget {
   final int initialIndex;
 
-  MainPage({this.initialIndex = 0});
+  const MainPage({super.key, this.initialIndex = 0});
 
   @override
   _MainPageState createState() => _MainPageState();

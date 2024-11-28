@@ -4,6 +4,8 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'main.dart';
 
 class LoginPage extends StatefulWidget {
+  const LoginPage({super.key});
+
   @override
   _LoginPageState createState() => _LoginPageState();
 }
@@ -15,8 +17,8 @@ class _LoginPageState extends State<LoginPage> {
   String _email = '';
   String _password = '';
   //add phone registering later
-  String _phone = '';
-  String _verificationId = '';
+  //final String _phone = '';
+  //final String _verificationId = '';
   bool _isRegistering = false;
 
   void _register() async {

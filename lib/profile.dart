@@ -2,11 +2,13 @@ import 'dart:io';
 import 'package:community_impact_tracker/settings.dart';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
-import 'package:path_provider/path_provider.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_storage/firebase_storage.dart';
 
 class ProfilePage extends StatefulWidget {
+  const ProfilePage({super.key});
+
   @override
   _ProfilePageState createState() => _ProfilePageState();
 }
@@ -16,7 +18,7 @@ class _ProfilePageState extends State<ProfilePage> {
   final ImagePicker _picker = ImagePicker();
   ImageProvider<Object>? _profileImage;
   String _username = "Loading...";
-  String? _imagePath;
+  String? _profileImageUrl;
 
   @override
   void initState() {
@@ -44,9 +46,11 @@ class _ProfilePageState extends State<ProfilePage> {
           });
         }
       } catch (e) {
-        print("Failed to fetch username: $e"); // Error logging
-        setState(() {
-          _username = 'Offline'; // Fallback text
+        print("Failed to fetch username: $e");
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          setState(() {
+            _username = 'Offline';
+          });
         });
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text('Unable to fetch profile information')),
@@ -56,48 +60,81 @@ class _ProfilePageState extends State<ProfilePage> {
   }
 
   Future<void> _loadProfileImage() async {
-    final directory = await getApplicationDocumentsDirectory();
-    final filePath = '${directory.path}/profile_picture.png';
-
-    if (await File(filePath).exists()) {
-      FileImage(File(filePath)).evict();
-
-      setState(() {
-        _profileImage = FileImage(File(filePath));
-        _imagePath = filePath;
-      });
+    final user = _auth.currentUser;
+    if (user != null) {
+      try {
+        final storageRef = FirebaseStorage.instance
+            .ref()
+            .child('profile_pictures/${user.uid}.jpg');
+        final imageUrl = await storageRef.getDownloadURL();
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          setState(() {
+            _profileImageUrl = imageUrl;
+            _profileImage = NetworkImage(imageUrl);
+          });
+        });
+      } catch (e) {
+        if (e is FirebaseException && e.code == 'object-not-found') {
+          print("No profile picture found for user ${user.uid}");
+        } else {
+          print("Failed to load profile image: $e");
+        }
+      }
     }
   }
 
   Future<void> _pickImage() async {
-    final XFile? pickedFile =
-        await _picker.pickImage(source: ImageSource.gallery);
-    if (pickedFile != null) {
-      File image = File(pickedFile.path);
-      await _saveProfileImage(image);
+    final user = _auth.currentUser;
+    if (user == null) return;
 
-      await _loadProfileImage();
+    final pickedFile = await _picker.pickImage(source: ImageSource.gallery);
+    if (pickedFile == null) {
+      print("No image selected");
+      return;
     }
-  }
 
-  Future<void> _saveProfileImage(File image) async {
-    final directory = await getApplicationDocumentsDirectory();
-    final filePath = '${directory.path}/profile_picture.png';
+    final file = File(pickedFile.path);
+    print("Picked file path: ${file.path}");
 
     try {
-      final localImage = await image.copy(filePath);
+      final storageRef = FirebaseStorage.instance
+          .ref()
+          .child('profile_pictures/${user.uid}.jpg');
+      print("Uploading file to: ${storageRef.fullPath}");
 
-      // Evict any cached image with this path before setting the new image
-      FileImage(File(filePath)).evict();
+      final uploadTask = storageRef.putFile(file);
 
-      setState(() {
-        _profileImage = FileImage(localImage); // Load the new image
-        _imagePath = filePath;
+      await uploadTask.whenComplete(() {
+        print("Upload completed for: ${storageRef.fullPath}");
       });
-    } catch (e) {
-      print("Failed to save profile image locally: $e");
+
+      uploadTask.catchError((error) {
+        print("Upload task error: $error");
+        throw error;
+      });
+
+      final imageUrl = await storageRef.getDownloadURL();
+      print("Download URL: $imageUrl");
+
+      await FirebaseFirestore.instance
+          .collection('users')
+          .doc(user.uid)
+          .update({'profile_picture': imageUrl});
+
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        setState(() {
+          _profileImageUrl = imageUrl;
+          _profileImage = NetworkImage(imageUrl);
+        });
+      });
+
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Failed to save profile image')),
+        SnackBar(content: Text('Profile picture updated!')),
+      );
+    } catch (e) {
+      print("Failed to upload image: $e");
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Failed to upload profile picture')),
       );
     }
   }
@@ -179,16 +216,6 @@ class _ProfilePageState extends State<ProfilePage> {
                           decoration: BoxDecoration(
                             color: Colors.grey,
                             shape: BoxShape.circle,
-                            boxShadow: [
-                              BoxShadow(
-                                color: const Color.fromARGB(255, 112, 112, 112)
-                                    .withOpacity(0.4),
-                                spreadRadius: 1,
-                                blurRadius: 0.5,
-                                offset:
-                                    Offset(0, 2), // Move shadow slightly down
-                              ),
-                            ],
                           ),
                           child: Icon(
                             Icons.cameraswitch_rounded,
@@ -241,7 +268,7 @@ class _ProfilePageState extends State<ProfilePage> {
               Text("Badges",
                   style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
               SizedBox(height: 10),
-              Container(
+              SizedBox(
                 height: 100,
                 child: SingleChildScrollView(
                   scrollDirection: Axis.horizontal,
@@ -284,7 +311,7 @@ class _ProfilePageState extends State<ProfilePage> {
 class BadgeWidget extends StatelessWidget {
   final String badgeName;
 
-  BadgeWidget({required this.badgeName});
+  const BadgeWidget({super.key, required this.badgeName});
 
   @override
   Widget build(BuildContext context) {
@@ -309,7 +336,7 @@ class BadgeWidget extends StatelessWidget {
 class AchievementWidget extends StatelessWidget {
   final String achievementName;
 
-  AchievementWidget({required this.achievementName});
+  const AchievementWidget({super.key, required this.achievementName});
 
   @override
   Widget build(BuildContext context) {
