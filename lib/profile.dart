@@ -104,33 +104,44 @@ class _ProfilePageState extends State<ProfilePage> {
 
       final uploadTask = storageRef.putFile(file);
 
-      await uploadTask.whenComplete(() {
-        print("Upload completed for: ${storageRef.fullPath}");
-      });
-
+      // Handling upload task errors
       uploadTask.catchError((error) {
         print("Upload task error: $error");
-        throw error;
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Failed to upload profile picture')),
+        );
+        return null; // Ensure Future completes correctly
       });
 
-      final imageUrl = await storageRef.getDownloadURL();
-      print("Download URL: $imageUrl");
+      await uploadTask.whenComplete(() async {
+        print("Upload completed for: ${storageRef.fullPath}");
 
-      await FirebaseFirestore.instance
-          .collection('users')
-          .doc(user.uid)
-          .update({'profile_picture': imageUrl});
+        // Add a longer delay to ensure Firebase processes the upload
+        await Future.delayed(Duration(seconds: 5));
 
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        setState(() {
-          _profileImageUrl = imageUrl;
-          _profileImage = NetworkImage(imageUrl);
-        });
+        try {
+          final imageUrl = await storageRef.getDownloadURL();
+          print("Download URL: $imageUrl");
+
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            setState(() {
+              _profileImageUrl = imageUrl;
+              _profileImage = NetworkImage(imageUrl);
+            });
+          });
+
+          await FirebaseFirestore.instance
+              .collection('users')
+              .doc(user.uid)
+              .update({'profile_picture': imageUrl});
+
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('Profile picture updated!')),
+          );
+        } catch (e) {
+          print("Failed to retrieve download URL: $e");
+        }
       });
-
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Profile picture updated!')),
-      );
     } catch (e) {
       print("Failed to upload image: $e");
       ScaffoldMessenger.of(context).showSnackBar(

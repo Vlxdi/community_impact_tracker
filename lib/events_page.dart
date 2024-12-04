@@ -24,8 +24,11 @@ class _EventsPageState extends State<EventsPage> {
   void fetchEventsFromFirebase() async {
     try {
       QuerySnapshot querySnapshot = await _firestore.collection('events').get();
+      print("Fetched ${querySnapshot.docs.length} events");
+
       setState(() {
         events = querySnapshot.docs.map((doc) {
+          print("Processing event: ${doc['name']}");
           return {
             'name': doc['name'],
             'description': doc['description'],
@@ -38,7 +41,7 @@ class _EventsPageState extends State<EventsPage> {
         isLoading = false;
       });
     } catch (e) {
-      print('Error fetching events: $e');
+      print("Error fetching events: $e");
       setState(() {
         isLoading = false;
       });
@@ -46,11 +49,13 @@ class _EventsPageState extends State<EventsPage> {
   }
 
   void handleSignIn(int index) async {
+    print("Event ID: ${events[index]['docId']}");
+    print("Event Status: ${events[index]['status']}");
+
     try {
       setState(() {
         events[index]['status'] = 'Awaiting';
       });
-
       final docId = events[index]['docId'];
       await _firestore
           .collection('events')
@@ -268,8 +273,9 @@ class EventCard extends StatelessWidget {
       ),
       child: Row(
         children: [
-          // Left side: Map, title, and description
-          Expanded(
+          // Left side: Map, title, and description (70% or 75%)
+          Flexible(
+            flex: 7,
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
@@ -300,23 +306,55 @@ class EventCard extends StatelessWidget {
             color: Colors.grey[300],
             margin: EdgeInsets.symmetric(horizontal: 12),
           ),
-          // Right side: Event details
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text("Starts: ${formatDate(startTime)}"),
-              Text("Ends: ${formatDate(endTime)}"),
-              Text("Reward: $rewardPoints⭐"),
-              SizedBox(height: 8),
-              ElevatedButton(
-                onPressed: status == 'Not Signed Up' ? onSignIn : null,
-                style: ElevatedButton.styleFrom(
-                  backgroundColor:
-                      status == 'Not Signed Up' ? Colors.blue : Colors.grey,
+          // Right side: Event details (30% or 25%)
+          Flexible(
+            flex: 3,
+            child: Stack(
+              children: [
+                Positioned(
+                  top: 0,
+                  right: 0,
+                  child: Container(
+                    padding: EdgeInsets.all(8),
+                    decoration: BoxDecoration(
+                      color: Colors.grey[300],
+                      borderRadius: BorderRadius.only(
+                        topRight: Radius.circular(12),
+                        bottomLeft: Radius.circular(12),
+                      ),
+                    ),
+                    child: Text(
+                      "Unactive",
+                      style: TextStyle(
+                        color: Colors.black,
+                        fontWeight: FontWeight.bold,
+                        fontSize: 16,
+                      ),
+                    ),
+                  ),
                 ),
-                child: Text(status == 'Not Signed Up' ? "Sign In" : status),
-              ),
-            ],
+                // Event details below the status container
+                Padding(
+                  padding: EdgeInsets.only(top: 40),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text("Starts: ${formatDate(startTime)}"),
+                      Text("Ends: ${formatDate(endTime)}"),
+                      Text("Reward: $rewardPoints⭐"),
+                      SizedBox(height: 8),
+                      ElevatedButton(
+                        onPressed: () => {}, // Replacing action with "Sign Up"
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: Colors.blue,
+                        ),
+                        child: Text("Sign Up"),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
           ),
         ],
       ),
