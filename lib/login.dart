@@ -1,3 +1,4 @@
+import 'package:community_impact_tracker/admin_panel.dart';
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
@@ -72,11 +73,25 @@ class _LoginPageState extends State<LoginPage> {
       UserCredential userCredential = await _auth.signInWithEmailAndPassword(
           email: _email, password: _password);
 
-      // Retrieve username
+      // Predefined admin email
+      const String adminEmail = "admin@goodtrack.com";
+
+      // Check if the logged-in user is the admin
+      if (userCredential.user?.email == adminEmail) {
+        Navigator.pushReplacement(
+          context,
+          MaterialPageRoute(
+              builder: (context) => AdminPanel()), // Navigate to Admin Panel
+        );
+        return;
+      }
+
+      // For regular users, retrieve the username
       final userDoc = await _firestore
           .collection('users')
           .doc(userCredential.user?.uid)
           .get();
+
       if (userDoc.exists && mounted) {
         setState(() {
           _username = userDoc.data()?['username'] ?? '';

@@ -1,5 +1,6 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart';
 import 'package:intl/intl.dart';
 
 class EventsPage extends StatefulWidget {
@@ -74,7 +75,7 @@ class _EventsPageState extends State<EventsPage> {
 
     return Scaffold(
       appBar: AppBar(
-        title: Text('Community Impact Tracker'),
+        title: Text('GoodTrack'),
       ),
       body: Column(
         children: [
@@ -291,8 +292,9 @@ class EventCard extends StatelessWidget {
                   style: TextStyle(fontSize: 14, color: Colors.grey[700]),
                 ),
                 SizedBox(height: 8),
+                //Add Google maps API
                 Container(
-                  height: 100,
+                  height: 170,
                   color: Colors.grey[300],
                   child: Center(child: Text("Map here")),
                 ),
@@ -302,7 +304,7 @@ class EventCard extends StatelessWidget {
           // Vertical separator line
           Container(
             width: 2,
-            height: 100,
+            height: 260,
             color: Colors.grey[300],
             margin: EdgeInsets.symmetric(horizontal: 12),
           ),
@@ -337,18 +339,27 @@ class EventCard extends StatelessWidget {
                 Padding(
                   padding: EdgeInsets.only(top: 40),
                   child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
+                    crossAxisAlignment: CrossAxisAlignment.center,
+                    mainAxisAlignment: MainAxisAlignment.center,
                     children: [
                       Text("Starts: ${formatDate(startTime)}"),
                       Text("Ends: ${formatDate(endTime)}"),
                       Text("Reward: $rewardPoints⭐"),
                       SizedBox(height: 8),
                       ElevatedButton(
-                        onPressed: () => {}, // Replacing action with "Sign Up"
+                        onPressed: () {
+                          // Call the dialog method here
+                          _showProfilePictureDialog(context);
+                        }, // Replacing action with "Sign Up"
                         style: ElevatedButton.styleFrom(
-                          backgroundColor: Colors.blue,
+                            backgroundColor: Colors.blue,
+                            padding: EdgeInsets.symmetric(
+                              horizontal: 15,
+                            )),
+                        child: Text(
+                          "Sign Up",
+                          style: TextStyle(fontSize: 14, color: Colors.white),
                         ),
-                        child: Text("Sign Up"),
                       ),
                     ],
                   ),
@@ -364,4 +375,90 @@ class EventCard extends StatelessWidget {
   String formatDate(DateTime date) {
     return DateFormat('d MMM yyyy, hh:mm a').format(date);
   }
+}
+
+void _showProfilePictureDialog(BuildContext context) {
+  showDialog(
+    context: context,
+    builder: (context) {
+      return Dialog(
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(15),
+        ),
+        child: Container(
+          padding: EdgeInsets.all(16),
+          constraints: BoxConstraints(
+            maxHeight: MediaQuery.of(context).size.height * 0.8,
+          ),
+          child: SingleChildScrollView(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                // Event Image
+                ClipRRect(
+                  borderRadius: BorderRadius.circular(10),
+                  child: Image.network(
+                    'https://via.placeholder.com/300', // Replace with your image URL
+                    height: 200,
+                    width: double.infinity,
+                    fit: BoxFit.cover,
+                  ),
+                ),
+                SizedBox(height: 16),
+
+                // Event Title
+                Text(
+                  'Event Title',
+                  style: TextStyle(
+                    fontSize: 22,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+                SizedBox(height: 8),
+
+                // Event Description
+                Text(
+                  'This is the event description. It contains all the details about the event, including what to expect, who the organizers are, and more!',
+                  style: TextStyle(fontSize: 16),
+                ),
+                SizedBox(height: 16),
+
+                // Event Date & Location
+                Text(
+                  'Date created: December 10, 2024',
+                  style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
+                ),
+                SizedBox(height: 4),
+                Text(
+                  'Location: Community Hall, Downtown',
+                  style: TextStyle(fontSize: 16),
+                ),
+                SizedBox(height: 20),
+
+                // Sign-Up Button
+                Center(
+                  child: ElevatedButton(
+                    onPressed: () {
+                      // Add sign-up logic here
+                      // Retrieves data from user's account resistration
+                      Navigator.of(context).pop(); // Close dialog on click
+                    },
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Colors.blue,
+                      padding:
+                          EdgeInsets.symmetric(horizontal: 15, vertical: 10),
+                    ),
+                    child: Text(
+                      "Sign Up",
+                      style: TextStyle(fontSize: 16, color: Colors.white),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      );
+    },
+  );
 }

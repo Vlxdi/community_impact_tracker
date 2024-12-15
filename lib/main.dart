@@ -6,13 +6,13 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'login.dart';
 import 'profile.dart';
 import 'firebase_options.dart';
+import 'admin_panel.dart'; // Import Admin Panel
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await Firebase.initializeApp(
     options: DefaultFirebaseOptions.currentPlatform,
   );
-  //FirebaseStorage.instanceFor(bucket: 'your-project-id.appspot.com');
   FirebaseFirestore.instance.settings = Settings(
     persistenceEnabled: true,
     cacheSizeBytes: Settings.CACHE_SIZE_UNLIMITED,
@@ -28,13 +28,26 @@ class MyApp extends StatelessWidget {
   Widget build(BuildContext context) {
     return MaterialApp(
       debugShowCheckedModeBanner: false,
-      home: AuthenticationWrapper(),
+      initialRoute: '/', // Default route when app starts
+      routes: {
+        '/': (context) => AuthenticationWrapper(), // Authentication check route
+        '/login': (context) => LoginPage(), // Login route
+        '/admin_panel': (context) => AdminPanel(), // Admin Panel route
+        '/main': (context) => MainPage(), // Main page route
+      },
     );
   }
 }
 
 class AuthenticationWrapper extends StatelessWidget {
   const AuthenticationWrapper({super.key});
+
+  Future<bool> _isAdminUser(String uid) async {
+    // Check if the user exists in the 'admins' collection
+    final adminDoc =
+        await FirebaseFirestore.instance.collection('admins').doc(uid).get();
+    return adminDoc.exists;
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -46,22 +59,45 @@ class AuthenticationWrapper extends StatelessWidget {
         }
 
         if (snapshot.hasData) {
-          WidgetsBinding.instance.addPostFrameCallback((_) {
-            Navigator.pushReplacement(
-              context,
-              MaterialPageRoute(
-                builder: (context) => MainPage(
-                  initialIndex: snapshot.data!.metadata.creationTime ==
-                          snapshot.data!.metadata.lastSignInTime
-                      ? 3
-                      : 0,
-                ),
-              ),
-            );
-          });
-          return SizedBox.shrink();
+          final currentUser = snapshot.data!;
+          return FutureBuilder<bool>(
+            future: _isAdminUser(currentUser.uid),
+            builder: (context, adminSnapshot) {
+              if (adminSnapshot.connectionState == ConnectionState.waiting) {
+                return Center(child: CircularProgressIndicator());
+              }
+
+              if (adminSnapshot.hasData && adminSnapshot.data == true) {
+                // Redirect to Admin Panel if the user is an admin
+                WidgetsBinding.instance.addPostFrameCallback((_) {
+                  Navigator.pushReplacement(
+                    context,
+                    MaterialPageRoute(builder: (context) => AdminPanel()),
+                  );
+                });
+                return SizedBox.shrink();
+              }
+
+              // Redirect to normal user MainPage
+              WidgetsBinding.instance.addPostFrameCallback((_) {
+                Navigator.pushReplacement(
+                  context,
+                  MaterialPageRoute(
+                    builder: (context) => MainPage(
+                      initialIndex: currentUser.metadata.creationTime ==
+                              currentUser.metadata.lastSignInTime
+                          ? 3
+                          : 0,
+                    ),
+                  ),
+                );
+              });
+              return SizedBox.shrink();
+            },
+          );
         }
 
+        // Show login page if no user is logged in
         return LoginPage();
       },
     );
