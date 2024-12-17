@@ -26,15 +26,97 @@ class _AdminPanelState extends State<AdminPanel> {
   String? _editingEventId;
 
   void _logout(BuildContext context) async {
-    try {
-      await _auth.signOut(); // Log out the admin
-      Navigator.pushReplacementNamed(
-          context, '/login'); // Navigate to the login page
-    } catch (e) {
-      print("Logout failed: $e");
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Logout failed. Please try again.')),
+    bool confirmLogout = await _showLogoutConfirmationDialog();
+    if (confirmLogout) {
+      try {
+        await _auth.signOut();
+        Navigator.pushReplacementNamed(context, '/login');
+      } catch (e) {
+        print("Logout failed: $e");
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Logout failed. Please try again.')),
+        );
+      }
+    }
+  }
+
+  Future<bool> _showLogoutConfirmationDialog() async {
+    return await showDialog<bool>(
+          context: context,
+          builder: (context) => AlertDialog(
+            title: Text('Confirm Logout'),
+            content: Text(
+                'Are you sure you want to log out from Administrator Account?\n(You will not be able to access Admin Panel as a regular user)'),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.of(context).pop(false),
+                child: Text('Cancel'),
+              ),
+              TextButton(
+                onPressed: () => Navigator.of(context).pop(true),
+                child: Text('Logout'),
+              ),
+            ],
+          ),
+        ) ??
+        false;
+  }
+
+  Future<void> _pickStartDateTime() async {
+    DateTime? pickedDate = await showDatePicker(
+      context: context,
+      initialDate: startDate ?? DateTime.now(),
+      firstDate: DateTime(2020),
+      lastDate: DateTime(2100),
+    );
+
+    if (pickedDate != null) {
+      TimeOfDay? pickedTime = await showTimePicker(
+        context: context,
+        initialTime: startTime ?? TimeOfDay.now(),
       );
+
+      if (pickedTime != null) {
+        setState(() {
+          startDate = DateTime(
+            pickedDate.year,
+            pickedDate.month,
+            pickedDate.day,
+            pickedTime.hour,
+            pickedTime.minute,
+          );
+          startTime = pickedTime;
+        });
+      }
+    }
+  }
+
+  Future<void> _pickEndDateTime() async {
+    DateTime? pickedDate = await showDatePicker(
+      context: context,
+      initialDate: endDate ?? DateTime.now(),
+      firstDate: DateTime(2020),
+      lastDate: DateTime(2100),
+    );
+
+    if (pickedDate != null) {
+      TimeOfDay? pickedTime = await showTimePicker(
+        context: context,
+        initialTime: endTime ?? TimeOfDay.now(),
+      );
+
+      if (pickedTime != null) {
+        setState(() {
+          endDate = DateTime(
+            pickedDate.year,
+            pickedDate.month,
+            pickedDate.day,
+            pickedTime.hour,
+            pickedTime.minute,
+          );
+          endTime = pickedTime;
+        });
+      }
     }
   }
 
@@ -173,13 +255,22 @@ class _AdminPanelState extends State<AdminPanel> {
       nameController.text = eventData['name'];
       descriptionController.text = eventData['description'];
       rewardPointsController.text = eventData['rewardPoints'].toString();
-      GeoPoint location = eventData['location'];
-      latitudeController.text = location.latitude.toString();
-      longitudeController.text = location.longitude.toString();
+
+      if (eventData['location'] is GeoPoint) {
+        GeoPoint location = eventData['location'];
+        latitudeController.text = location.latitude.toString();
+        longitudeController.text = location.longitude.toString();
+      } else {
+        // Handle invalid or missing location data
+        latitudeController.text = '0.0';
+        longitudeController.text = '0.0';
+      }
+
       startDate = (eventData['startTime'] as Timestamp).toDate();
       endDate = (eventData['endTime'] as Timestamp).toDate();
       startTime = TimeOfDay.fromDateTime(startDate!);
       endTime = TimeOfDay.fromDateTime(endDate!);
+
       _isEditing = true;
       _editingEventId = id;
     });
@@ -212,6 +303,60 @@ class _AdminPanelState extends State<AdminPanel> {
                     decoration: InputDecoration(labelText: "Reward Points"),
                     keyboardType: TextInputType.number,
                   ),
+                  SizedBox(
+                    height: 10,
+                  ),
+                  Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text("Start Date and Time",
+                          style: TextStyle(fontWeight: FontWeight.bold)),
+                      SizedBox(
+                        height: 5,
+                      ),
+                      Row(
+                        children: [
+                          ElevatedButton(
+                            onPressed: _pickStartDateTime,
+                            child: Text("Select"),
+                          ),
+                          SizedBox(width: 16),
+                          Text(
+                            startDate != null
+                                ? "${startDate!.toLocal()}".split('.')[0]
+                                : "Not Selected",
+                            style: TextStyle(fontSize: 16),
+                          ),
+                        ],
+                      ),
+                      SizedBox(height: 10),
+                      Text("End Date and Time",
+                          style: TextStyle(fontWeight: FontWeight.bold)),
+                      SizedBox(
+                        height: 5,
+                      ),
+                      Row(
+                        children: [
+                          ElevatedButton(
+                            onPressed: _pickEndDateTime,
+                            child: Text("Select"),
+                          ),
+                          SizedBox(width: 16),
+                          Text(
+                            endDate != null
+                                ? "${endDate!.toLocal()}".split('.')[0]
+                                : "Not Selected",
+                            style: TextStyle(fontSize: 16),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
+                  SizedBox(
+                    height: 10,
+                  ),
+                  Text("Location",
+                      style: TextStyle(fontWeight: FontWeight.bold)),
                   Row(
                     children: [
                       Expanded(
@@ -231,22 +376,41 @@ class _AdminPanelState extends State<AdminPanel> {
                       ),
                     ],
                   ),
-                  SizedBox(height: 16),
-                  ElevatedButton(
-                    onPressed: _createOrUpdateEvent,
-                    child: Text(_isEditing ? "Save Changes" : "Create Event"),
+                  SizedBox(height: 15),
+                  Column(
+                    spacing: 5,
+                    children: [
+                      ElevatedButton(
+                        onPressed: _createOrUpdateEvent,
+                        child:
+                            Text(_isEditing ? "Save Changes" : "Create Event"),
+                      ),
+                      ElevatedButton(
+                        onPressed: _clearForm,
+                        child: Text("Clear Form"),
+                      ),
+                    ],
                   ),
-                  // Button to create another event
+                  SizedBox(
+                    height: 10,
+                  ),
                   if (_isEditing)
                     ElevatedButton(
                       onPressed: _clearForm,
-                      child: Text("Create Another Event"),
+                      child: Text("Create New Event"),
                     ),
-                  TextButton(
-                    onPressed: _clearForm,
-                    child: Text("Clear Form"),
-                  ),
                   Divider(),
+                  SizedBox(
+                    height: 16,
+                  ),
+                  Text(
+                    'Existing Events',
+                    style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                    textAlign: TextAlign.center,
+                  ),
+                  SizedBox(
+                    height: 5,
+                  ),
                   StreamBuilder<QuerySnapshot>(
                     stream: _firestore.collection('events').snapshots(),
                     builder: (context, snapshot) {
@@ -284,6 +448,16 @@ class _AdminPanelState extends State<AdminPanel> {
                     },
                   ),
                 ],
+              ),
+            ),
+            Padding(
+              padding: const EdgeInsets.only(bottom: 16.0, top: 16.0),
+              child: ElevatedButton(
+                onPressed: () => _logout(context),
+                style: ElevatedButton.styleFrom(
+                  minimumSize: Size(double.infinity, 50),
+                ),
+                child: Text('Logout'),
               ),
             ),
           ],
