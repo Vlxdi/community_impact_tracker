@@ -92,10 +92,18 @@ class _AdminPanelState extends State<AdminPanel> {
   }
 
   Future<void> _pickEndDateTime() async {
+    if (startDate == null || startTime == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text("Please select the start date and time first.")),
+      );
+      return;
+    }
+
     DateTime? pickedDate = await showDatePicker(
       context: context,
       initialDate: endDate ?? DateTime.now(),
-      firstDate: DateTime(2020),
+      firstDate:
+          startDate!, // Start date must be at least the selected start date
       lastDate: DateTime(2100),
     );
 
@@ -106,93 +114,137 @@ class _AdminPanelState extends State<AdminPanel> {
       );
 
       if (pickedTime != null) {
-        setState(() {
-          endDate = DateTime(
-            pickedDate.year,
-            pickedDate.month,
-            pickedDate.day,
-            pickedTime.hour,
-            pickedTime.minute,
-          );
-          endTime = pickedTime;
-        });
-      }
-    }
-  }
+        DateTime selectedEndDateTime = DateTime(
+          pickedDate.year,
+          pickedDate.month,
+          pickedDate.day,
+          pickedTime.hour,
+          pickedTime.minute,
+        );
 
-  Future<void> _createOrUpdateEvent() async {
-    if (nameController.text.isNotEmpty &&
-        descriptionController.text.isNotEmpty &&
-        startDate != null &&
-        startTime != null &&
-        endDate != null &&
-        endTime != null &&
-        rewardPointsController.text.isNotEmpty &&
-        latitudeController.text.isNotEmpty &&
-        longitudeController.text.isNotEmpty) {
-      try {
-        DateTime finalStartTime = DateTime(
+        DateTime selectedStartDateTime = DateTime(
           startDate!.year,
           startDate!.month,
           startDate!.day,
           startTime!.hour,
           startTime!.minute,
         );
-        DateTime finalEndTime = DateTime(
-          endDate!.year,
-          endDate!.month,
-          endDate!.day,
-          endTime!.hour,
-          endTime!.minute,
-        );
 
-        if (_isEditing && _editingEventId != null) {
-          // Update event
-          await _firestore.collection('events').doc(_editingEventId).update({
-            'name': nameController.text,
-            'description': descriptionController.text,
-            'startTime': Timestamp.fromDate(finalStartTime),
-            'endTime': Timestamp.fromDate(finalEndTime),
-            'rewardPoints': int.parse(rewardPointsController.text),
-            'location': GeoPoint(
-              double.parse(latitudeController.text),
-              double.parse(longitudeController.text),
-            ),
-          });
-
+        if (selectedEndDateTime.isBefore(selectedStartDateTime)) {
           ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text("Event Updated Successfully!")),
+            SnackBar(
+              content: Text("End time cannot be before the start time."),
+            ),
+          );
+        } else if (selectedEndDateTime
+            .isAtSameMomentAs(selectedStartDateTime)) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text("End time cannot be the same as the start time."),
+            ),
           );
         } else {
-          // Create new event
-          await _firestore.collection('events').add({
-            'name': nameController.text,
-            'description': descriptionController.text,
-            'startTime': Timestamp.fromDate(finalStartTime),
-            'endTime': Timestamp.fromDate(finalEndTime),
-            'rewardPoints': int.parse(rewardPointsController.text),
-            'location': GeoPoint(
-              double.parse(latitudeController.text),
-              double.parse(longitudeController.text),
-            ),
-            'createdDate': Timestamp.now(),
-            'status': 'Upcoming',
+          setState(() {
+            endDate = pickedDate;
+            endTime = pickedTime;
           });
-
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text("Event Created Successfully!")),
-          );
         }
-
-        _clearForm();
-      } catch (e) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text("Error: $e")),
-        );
       }
-    } else {
+    }
+  }
+
+  Future<void> _createOrUpdateEvent() async {
+    if (nameController.text.isEmpty ||
+        descriptionController.text.isEmpty ||
+        startDate == null ||
+        startTime == null ||
+        endDate == null ||
+        endTime == null ||
+        rewardPointsController.text.isEmpty ||
+        latitudeController.text.isEmpty ||
+        longitudeController.text.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text("Please fill all fields!")),
+      );
+      return;
+    }
+
+    DateTime finalStartTime = DateTime(
+      startDate!.year,
+      startDate!.month,
+      startDate!.day,
+      startTime!.hour,
+      startTime!.minute,
+    );
+    DateTime finalEndTime = DateTime(
+      endDate!.year,
+      endDate!.month,
+      endDate!.day,
+      endTime!.hour,
+      endTime!.minute,
+    );
+
+    if (finalEndTime.isBefore(finalStartTime)) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+            content: Text(
+                "End date and time cannot be before the start date and time.")),
+      );
+      return;
+    }
+
+    if (finalEndTime.isAtSameMomentAs(finalStartTime)) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+            content: Text(
+                "End date and time cannot be the same as the start date and time.")),
+      );
+      return;
+    }
+
+    try {
+      if (_isEditing && _editingEventId != null) {
+        // Update event
+        await _firestore.collection('events').doc(_editingEventId).update({
+          'name': nameController.text,
+          'description': descriptionController.text,
+          'startTime': Timestamp.fromDate(finalStartTime),
+          'endTime': Timestamp.fromDate(finalEndTime),
+          'rewardPoints': int.parse(rewardPointsController.text),
+          'location': GeoPoint(
+            double.parse(latitudeController.text),
+            double.parse(longitudeController.text),
+          ),
+        });
+
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text("Event Updated Successfully!")),
+        );
+      } else {
+        // Create new event
+        await _firestore.collection('events').add({
+          'name': nameController.text,
+          'description': descriptionController.text,
+          'startTime': Timestamp.fromDate(finalStartTime),
+          'endTime': Timestamp.fromDate(finalEndTime),
+          'rewardPoints': int.parse(rewardPointsController.text),
+          'location': GeoPoint(
+            double.parse(latitudeController.text),
+            double.parse(longitudeController.text),
+          ),
+          'createdDate': Timestamp.now(),
+          'status': 'Upcoming',
+        });
+
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text("Event Created Successfully!")),
+        );
+      }
+
+      _clearForm();
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text("Error: $e")),
       );
     }
   }
@@ -221,6 +273,11 @@ class _AdminPanelState extends State<AdminPanel> {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text("Event Deleted Successfully!")),
         );
+
+        // If the deleted event was being edited, clear the form and reset the state
+        if (_isEditing && _editingEventId == id) {
+          _clearForm();
+        }
       } catch (e) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text("Error: $e")),
