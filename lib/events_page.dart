@@ -75,7 +75,28 @@ class _EventsPageState extends State<EventsPage> {
 
     return Scaffold(
       appBar: AppBar(
-        title: Text('GoodTrack'),
+        centerTitle: true,
+        title: RichText(
+          text: TextSpan(
+            style: TextStyle(fontSize: 25),
+            children: <TextSpan>[
+              TextSpan(
+                text: 'Good',
+                style: TextStyle(
+                  fontWeight: FontWeight.bold,
+                  color: Color(0xFF71CD8C),
+                ),
+              ),
+              TextSpan(
+                text: 'Track',
+                style: TextStyle(
+                  fontWeight: FontWeight.bold,
+                  color: Colors.black,
+                ),
+              ),
+            ],
+          ),
+        ),
       ),
       body: Column(
         children: [
@@ -349,7 +370,7 @@ class EventCard extends StatelessWidget {
                       ElevatedButton(
                         onPressed: () {
                           // Call the dialog method here
-                          _showProfilePictureDialog(context);
+                          _showEventSignUpDialog(context);
                         }, // Replacing action with "Sign Up"
                         style: ElevatedButton.styleFrom(
                             backgroundColor: Colors.blue,
@@ -377,7 +398,7 @@ class EventCard extends StatelessWidget {
   }
 }
 
-void _showProfilePictureDialog(BuildContext context) {
+void _showEventSignUpDialog(BuildContext context) {
   showDialog(
     context: context,
     builder: (context) {
@@ -398,7 +419,7 @@ void _showProfilePictureDialog(BuildContext context) {
                 ClipRRect(
                   borderRadius: BorderRadius.circular(10),
                   child: Image.network(
-                    'https://via.placeholder.com/300', // Replace with your image URL
+                    'https://via.placeholder.com/300',
                     height: 200,
                     width: double.infinity,
                     fit: BoxFit.cover,

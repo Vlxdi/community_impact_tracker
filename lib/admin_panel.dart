@@ -1,6 +1,7 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 
 class AdminPanel extends StatefulWidget {
   @override
@@ -354,11 +355,13 @@ class _AdminPanelState extends State<AdminPanel> {
                     controller: descriptionController,
                     decoration: InputDecoration(labelText: "Description"),
                     maxLines: 2,
+                    maxLength: 100,
                   ),
                   TextField(
                     controller: rewardPointsController,
                     decoration: InputDecoration(labelText: "Reward Points"),
                     keyboardType: TextInputType.number,
+                    inputFormatters: [FilteringTextInputFormatter.digitsOnly],
                   ),
                   SizedBox(
                     height: 10,

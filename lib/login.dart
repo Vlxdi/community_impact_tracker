@@ -199,18 +199,22 @@ class _LoginPageState extends State<LoginPage> {
                   children: [
                     // New username field
                     if (_isRegistering)
-                      TextField(
-                        decoration: InputDecoration(
-                          hintText: 'Username',
-                          border: InputBorder.none,
-                        ),
-                        onChanged: (value) {
-                          setState(() {
-                            _username = value;
-                          });
-                        },
+                      Column(
+                        children: [
+                          TextField(
+                            decoration: InputDecoration(
+                              hintText: 'Username',
+                              border: InputBorder.none,
+                            ),
+                            onChanged: (value) {
+                              setState(() {
+                                _username = value;
+                              });
+                            },
+                          ),
+                          Divider(),
+                        ],
                       ),
-                    Divider(),
                     TextField(
                       decoration: InputDecoration(
                         hintText: 'Email',
