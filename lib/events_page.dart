@@ -15,6 +15,8 @@ class _EventsPageState extends State<EventsPage> {
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
   List<Map<String, dynamic>> events = [];
   bool isLoading = true;
+  // final TextEditingController latitudeController = TextEditingController();
+  // final TextEditingController longitudeController = TextEditingController();
 
   @override
   void initState() {
@@ -30,11 +32,13 @@ class _EventsPageState extends State<EventsPage> {
       setState(() {
         events = querySnapshot.docs.map((doc) {
           print("Processing event: ${doc['name']}");
+
           return {
             'name': doc['name'],
             'description': doc['description'],
             'startTime': (doc['startTime'] as Timestamp).toDate(),
             'endTime': (doc['endTime'] as Timestamp).toDate(),
+            'createdDate': (doc['createdDate'] as Timestamp).toDate(),
             'rewardPoints': doc['rewardPoints'],
             'status': doc['status'],
           };
@@ -243,6 +247,8 @@ class _EventsPageState extends State<EventsPage> {
                   description: event['description'],
                   startTime: event['startTime'],
                   endTime: event['endTime'],
+                  createdDate: event['createdDate'],
+                  //location: event['location'],
                   rewardPoints: event['rewardPoints'],
                   status: event['status'],
                   onSignIn: () => handleSignIn(index),
@@ -262,6 +268,8 @@ class EventCard extends StatelessWidget {
   final String description;
   final DateTime startTime;
   final DateTime endTime;
+  final DateTime createdDate;
+  // final GeoPoint location;
   final int rewardPoints;
   final String status;
   final VoidCallback onSignIn;
@@ -272,6 +280,8 @@ class EventCard extends StatelessWidget {
     required this.description,
     required this.startTime,
     required this.endTime,
+    required this.createdDate,
+    //required this.location,
     required this.rewardPoints,
     required this.status,
     required this.onSignIn,
@@ -396,90 +406,92 @@ class EventCard extends StatelessWidget {
   String formatDate(DateTime date) {
     return DateFormat('d MMM yyyy, hh:mm a').format(date);
   }
-}
 
-void _showEventSignUpDialog(BuildContext context) {
-  showDialog(
-    context: context,
-    builder: (context) {
-      return Dialog(
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(15),
-        ),
-        child: Container(
-          padding: EdgeInsets.all(16),
-          constraints: BoxConstraints(
-            maxHeight: MediaQuery.of(context).size.height * 0.8,
+  void _showEventSignUpDialog(BuildContext context) {
+    showDialog(
+      context: context,
+      builder: (context) {
+        return Dialog(
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(15),
           ),
-          child: SingleChildScrollView(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                // Event Image
-                ClipRRect(
-                  borderRadius: BorderRadius.circular(10),
-                  child: Image.network(
-                    'https://via.placeholder.com/300',
-                    height: 200,
-                    width: double.infinity,
-                    fit: BoxFit.cover,
-                  ),
-                ),
-                SizedBox(height: 16),
-
-                // Event Title
-                Text(
-                  'Event Title',
-                  style: TextStyle(
-                    fontSize: 22,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-                SizedBox(height: 8),
-
-                // Event Description
-                Text(
-                  'This is the event description. It contains all the details about the event, including what to expect, who the organizers are, and more!',
-                  style: TextStyle(fontSize: 16),
-                ),
-                SizedBox(height: 16),
-
-                // Event Date & Location
-                Text(
-                  'Date created: December 10, 2024',
-                  style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
-                ),
-                SizedBox(height: 4),
-                Text(
-                  'Location: Community Hall, Downtown',
-                  style: TextStyle(fontSize: 16),
-                ),
-                SizedBox(height: 20),
-
-                // Sign-Up Button
-                Center(
-                  child: ElevatedButton(
-                    onPressed: () {
-                      // Add sign-up logic here
-                      // Retrieves data from user's account resistration
-                      Navigator.of(context).pop(); // Close dialog on click
-                    },
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: Colors.blue,
-                      padding:
-                          EdgeInsets.symmetric(horizontal: 15, vertical: 10),
-                    ),
-                    child: Text(
-                      "Sign Up",
-                      style: TextStyle(fontSize: 16, color: Colors.white),
+          child: Container(
+            padding: EdgeInsets.all(16),
+            constraints: BoxConstraints(
+              maxHeight: MediaQuery.of(context).size.height * 0.8,
+            ),
+            child: SingleChildScrollView(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  // Event Image
+                  ClipRRect(
+                    borderRadius: BorderRadius.circular(10),
+                    child: Image.network(
+                      'https://via.placeholder.com/300',
+                      height: 200,
+                      width: double.infinity,
+                      fit: BoxFit.cover,
                     ),
                   ),
-                ),
-              ],
+                  SizedBox(height: 16),
+
+                  // Event Title
+                  Text(
+                    name.isNotEmpty ? name : "Event Name",
+                    style: TextStyle(
+                      fontSize: 22,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                  SizedBox(height: 8),
+
+                  // Event Description
+                  Text(
+                    description.isNotEmpty
+                        ? description
+                        : "No description provided",
+                    style: TextStyle(fontSize: 16),
+                  ),
+                  SizedBox(height: 16),
+
+                  // Event Date & Location
+                  Text(
+                    'Created on: ${formatDate(createdDate)}',
+                    style: TextStyle(fontSize: 14, color: Colors.grey),
+                  ),
+                  SizedBox(height: 4),
+                  Text(
+                    'Location: Community Hall, Downtown',
+                    style: TextStyle(fontSize: 16),
+                  ),
+                  SizedBox(height: 20),
+
+                  // Sign-Up Button
+                  Center(
+                    child: ElevatedButton(
+                      onPressed: () {
+                        // Add sign-up logic here
+                        // Retrieves data from user's account resistration
+                        Navigator.of(context).pop(); // Close dialog on click
+                      },
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: Colors.blue,
+                        padding:
+                            EdgeInsets.symmetric(horizontal: 15, vertical: 10),
+                      ),
+                      child: Text(
+                        "Sign Up",
+                        style: TextStyle(fontSize: 16, color: Colors.white),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
             ),
           ),
-        ),
-      );
-    },
-  );
+        );
+      },
+    );
+  }
 }
