@@ -1,7 +1,11 @@
+import 'dart:io';
+
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:firebase_storage/firebase_storage.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:image_picker/image_picker.dart';
 
 class AdminPanel extends StatefulWidget {
   @override
@@ -14,6 +18,9 @@ class _AdminPanelState extends State<AdminPanel> {
   final TextEditingController rewardPointsController = TextEditingController();
   final TextEditingController latitudeController = TextEditingController();
   final TextEditingController longitudeController = TextEditingController();
+
+  XFile? _pickedImage;
+  final ImagePicker _imagePicker = ImagePicker();
 
   DateTime? startDate;
   TimeOfDay? startTime;
@@ -151,6 +158,57 @@ class _AdminPanelState extends State<AdminPanel> {
           });
         }
       }
+    }
+  }
+
+  Future<void> _selectAndUploadImage() async {
+    try {
+      print("Starting image selection...");
+      final pickedFile =
+          await _imagePicker.pickImage(source: ImageSource.gallery);
+
+      if (pickedFile != null) {
+        print("Image selected: ${pickedFile.path}");
+        setState(() {
+          _pickedImage = pickedFile;
+        });
+
+        final fileName = DateTime.now().millisecondsSinceEpoch.toString();
+        final storageRef = FirebaseStorage.instance
+            .ref()
+            .child('event_images')
+            .child(fileName);
+
+        print("Uploading to path: event_images/$fileName");
+
+        final uploadTask = storageRef.putFile(File(_pickedImage!.path));
+        final snapshot = await uploadTask.whenComplete(() {
+          print("Upload complete");
+        });
+
+        print("Fetching download URL...");
+        final downloadUrl = await snapshot.ref.getDownloadURL();
+        print("Download URL fetched: $downloadUrl");
+
+        await _firestore.collection('events').add({
+          'image': downloadUrl,
+          // Include other fields as required
+        });
+
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Image uploaded successfully!')),
+        );
+      } else {
+        print("No image selected.");
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('No image selected')),
+        );
+      }
+    } catch (e) {
+      print("Error: $e");
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Error uploading image: $e')),
+      );
     }
   }
 
@@ -437,6 +495,17 @@ class _AdminPanelState extends State<AdminPanel> {
                     ],
                   ),
                   SizedBox(height: 15),
+                  Row(
+                    children: [
+                      ElevatedButton(
+                        onPressed: _selectAndUploadImage,
+                        child: Text('Upload Image'),
+                      ),
+                      SizedBox(width: 10),
+                      if (_pickedImage != null) Text('Image Selected'),
+                    ],
+                  ),
+                  SizedBox(height: 15),
                   Column(
                     spacing: 5,
                     children: [
@@ -463,6 +532,8 @@ class _AdminPanelState extends State<AdminPanel> {
                   SizedBox(
                     height: 16,
                   ),
+
+                  //Existing events list section
                   Text(
                     'Existing Events',
                     style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
