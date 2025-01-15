@@ -46,7 +46,7 @@ class DefaultFirebaseOptions {
     messagingSenderId: '538698773394',
     projectId: 'community-impact-tracker',
     authDomain: 'community-impact-tracker.firebaseapp.com',
-    storageBucket: 'community-impact-tracker.appspot.com',
+    storageBucket: 'community-impact-tracker.firebasestorage.app',
     measurementId: 'G-GCN6Q4WH0Y',
   );
 
@@ -55,7 +55,7 @@ class DefaultFirebaseOptions {
     appId: '1:538698773394:android:3ed9a3b131721fb61f474b',
     messagingSenderId: '538698773394',
     projectId: 'community-impact-tracker',
-    storageBucket: 'community-impact-tracker.appspot.com',
+    storageBucket: 'community-impact-tracker.firebasestorage.app',
   );
 
   static const FirebaseOptions ios = FirebaseOptions(
@@ -63,7 +63,7 @@ class DefaultFirebaseOptions {
     appId: '1:538698773394:ios:d543d59a2b9c57521f474b',
     messagingSenderId: '538698773394',
     projectId: 'community-impact-tracker',
-    storageBucket: 'community-impact-tracker.appspot.com',
+    storageBucket: 'community-impact-tracker.firebasestorage.app',
     iosBundleId: 'com.example.communityImpactTracker',
   );
 
@@ -72,7 +72,7 @@ class DefaultFirebaseOptions {
     appId: '1:538698773394:ios:d543d59a2b9c57521f474b',
     messagingSenderId: '538698773394',
     projectId: 'community-impact-tracker',
-    storageBucket: 'community-impact-tracker.appspot.com',
+    storageBucket: 'community-impact-tracker.firebasestorage.app',
     iosBundleId: 'com.example.communityImpactTracker',
   );
 
@@ -82,7 +82,8 @@ class DefaultFirebaseOptions {
     messagingSenderId: '538698773394',
     projectId: 'community-impact-tracker',
     authDomain: 'community-impact-tracker.firebaseapp.com',
-    storageBucket: 'community-impact-tracker.appspot.com',
+    storageBucket: 'community-impact-tracker.firebasestorage.app',
     measurementId: 'G-FD9P5FLJHL',
   );
+
 }

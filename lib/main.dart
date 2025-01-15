@@ -122,7 +122,7 @@ class _MainPageState extends State<MainPage> {
     Center(child: Text('This is the Shop Page')),
     Center(child: Text('This is the Leaderboard Page')),
     ProfilePage(),
-    Imager(),
+    ImagerPage(),
   ];
 
   @override
