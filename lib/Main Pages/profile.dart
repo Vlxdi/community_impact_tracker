@@ -1,5 +1,5 @@
 import 'dart:io';
-import 'package:community_impact_tracker/settings.dart';
+import 'package:community_impact_tracker/Main%20Pages/Settings/settings.dart';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:firebase_auth/firebase_auth.dart';
@@ -116,31 +116,12 @@ class _ProfilePageState extends State<ProfilePage> {
       await uploadTask.whenComplete(() async {
         print("Upload completed for: ${storageRef.fullPath}");
 
-        // Add a longer delay to ensure Firebase processes the upload
-        await Future.delayed(Duration(seconds: 5));
+        // Immediately reload the profile image after upload
+        await _loadProfileImage(); // Refresh profile image after upload
 
-        try {
-          final imageUrl = await storageRef.getDownloadURL();
-          print("Download URL: $imageUrl");
-
-          WidgetsBinding.instance.addPostFrameCallback((_) {
-            setState(() {
-              _profileImageUrl = imageUrl;
-              _profileImage = NetworkImage(imageUrl);
-            });
-          });
-
-          await FirebaseFirestore.instance
-              .collection('users')
-              .doc(user.uid)
-              .update({'profile_picture': imageUrl});
-
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('Profile picture updated!')),
-          );
-        } catch (e) {
-          print("Failed to retrieve download URL: $e");
-        }
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Profile picture updated!')),
+        );
       });
     } catch (e) {
       print("Failed to upload image: $e");
