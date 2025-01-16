@@ -1,10 +1,11 @@
 import 'dart:io';
-import 'package:community_impact_tracker/Main%20Pages/Settings/settings.dart';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_storage/firebase_storage.dart';
+
+import 'settings/settings.dart';
 
 class ProfilePage extends StatefulWidget {
   const ProfilePage({super.key});
@@ -18,7 +19,6 @@ class _ProfilePageState extends State<ProfilePage> {
   final ImagePicker _picker = ImagePicker();
   ImageProvider<Object>? _profileImage;
   String _username = "Loading...";
-  String? _profileImageUrl;
 
   @override
   void initState() {
@@ -69,7 +69,6 @@ class _ProfilePageState extends State<ProfilePage> {
         final imageUrl = await storageRef.getDownloadURL();
         WidgetsBinding.instance.addPostFrameCallback((_) {
           setState(() {
-            _profileImageUrl = imageUrl;
             _profileImage = NetworkImage(imageUrl);
           });
         });

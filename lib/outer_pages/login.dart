@@ -1,8 +1,8 @@
-import 'package:community_impact_tracker/admin_panel.dart';
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
-import 'main.dart';
+import '../../main.dart';
+import 'admin_panel.dart';
 
 class LoginPage extends StatefulWidget {
   const LoginPage({super.key});

@@ -1,7 +1,7 @@
-import 'package:community_impact_tracker/Main Pages/Settings/account_settings.dart';
+import 'package:community_impact_tracker/main_pages/settings/account_settings.dart';
+import 'package:community_impact_tracker/outer_pages/login.dart';
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
-import '../../login.dart';
 
 class SettingsPage extends StatelessWidget {
   const SettingsPage({super.key});

@@ -1,13 +1,12 @@
-import 'package:community_impact_tracker/Main%20Pages/events_page.dart';
-import 'package:community_impact_tracker/Main%20Pages/imager.dart';
+import 'package:community_impact_tracker/main_pages/events_page.dart';
 import 'package:flutter/material.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
-import 'login.dart';
-import 'Main Pages/profile.dart';
+import 'outer_pages/login.dart';
+import 'main_pages/profile.dart';
 import 'firebase_options.dart';
-import 'admin_panel.dart';
+import 'outer_pages/admin_panel.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -122,7 +121,6 @@ class _MainPageState extends State<MainPage> {
     Center(child: Text('This is the Shop Page')),
     Center(child: Text('This is the Leaderboard Page')),
     ProfilePage(),
-    ImagerPage(),
   ];
 
   @override
@@ -161,10 +159,6 @@ class _MainPageState extends State<MainPage> {
           BottomNavigationBarItem(
             icon: Icon(Icons.person_2),
             label: 'Profile',
-          ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.image),
-            label: 'Imager',
           ),
         ],
         currentIndex: _selectedIndex,

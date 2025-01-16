@@ -1,5 +1,4 @@
 import 'dart:io';
-
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_storage/firebase_storage.dart';
@@ -20,7 +19,9 @@ class _AdminPanelState extends State<AdminPanel> {
   final TextEditingController longitudeController = TextEditingController();
 
   XFile? _pickedImage;
+  String? _currentImageUrl;
   final ImagePicker _imagePicker = ImagePicker();
+  bool _isRemovingImage = false;
 
   DateTime? startDate;
   TimeOfDay? startTime;
@@ -161,54 +162,58 @@ class _AdminPanelState extends State<AdminPanel> {
     }
   }
 
-  Future<void> _selectAndUploadImage() async {
+  Future<void> _pickImage() async {
     try {
-      print("Starting image selection...");
-      final pickedFile =
-          await _imagePicker.pickImage(source: ImageSource.gallery);
+      final XFile? pickedFile = await _imagePicker.pickImage(
+        source: ImageSource.gallery,
+        maxWidth: 1024, // Limit image size
+        maxHeight: 1024,
+        imageQuality: 85, // Compress image
+      );
 
       if (pickedFile != null) {
-        print("Image selected: ${pickedFile.path}");
         setState(() {
           _pickedImage = pickedFile;
+          _isRemovingImage = false;
         });
-
-        final fileName = DateTime.now().millisecondsSinceEpoch.toString();
-        final storageRef = FirebaseStorage.instance
-            .ref()
-            .child('event_images')
-            .child(fileName);
-
-        print("Uploading to path: event_images/$fileName");
-
-        final uploadTask = storageRef.putFile(File(_pickedImage!.path));
-        final snapshot = await uploadTask.whenComplete(() {
-          print("Upload complete");
-        });
-
-        print("Fetching download URL...");
-        final downloadUrl = await snapshot.ref.getDownloadURL();
-        print("Download URL fetched: $downloadUrl");
-
-        await _firestore.collection('events').add({
-          'image': downloadUrl,
-          // Include other fields as required
-        });
-
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Image uploaded successfully!')),
-        );
-      } else {
-        print("No image selected.");
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('No image selected')),
-        );
       }
     } catch (e) {
-      print("Error: $e");
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Error picking image: $e')),
+      );
+    }
+  }
+
+  Future<String?> _uploadImageToStorage() async {
+    if (_pickedImage == null) return null;
+
+    try {
+      final String fileName =
+          'event_${DateTime.now().millisecondsSinceEpoch}.jpg';
+      final Reference storageRef =
+          FirebaseStorage.instance.ref().child('event_images').child(fileName);
+
+      final UploadTask uploadTask =
+          storageRef.putFile(File(_pickedImage!.path));
+      final TaskSnapshot snapshot = await uploadTask;
+      final String downloadUrl = await snapshot.ref.getDownloadURL();
+
+      return downloadUrl;
+    } catch (e) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text('Error uploading image: $e')),
       );
+      return null;
+    }
+  }
+
+  Future<void> _deleteImageFromStorage(String imageUrl) async {
+    try {
+      final Reference storageRef =
+          FirebaseStorage.instance.refFromURL(imageUrl);
+      await storageRef.delete();
+    } catch (e) {
+      print('Error deleting image from storage: $e');
     }
   }
 
@@ -228,73 +233,75 @@ class _AdminPanelState extends State<AdminPanel> {
       return;
     }
 
-    DateTime finalStartTime = DateTime(
-      startDate!.year,
-      startDate!.month,
-      startDate!.day,
-      startTime!.hour,
-      startTime!.minute,
-    );
-    DateTime finalEndTime = DateTime(
-      endDate!.year,
-      endDate!.month,
-      endDate!.day,
-      endTime!.hour,
-      endTime!.minute,
-    );
-
-    if (finalEndTime.isBefore(finalStartTime)) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-            content: Text(
-                "End date and time cannot be before the start date and time.")),
-      );
-      return;
-    }
-
-    if (finalEndTime.isAtSameMomentAs(finalStartTime)) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-            content: Text(
-                "End date and time cannot be the same as the start date and time.")),
-      );
-      return;
-    }
-
     try {
-      if (_isEditing && _editingEventId != null) {
-        // Update event
-        await _firestore.collection('events').doc(_editingEventId).update({
-          'name': nameController.text,
-          'description': descriptionController.text,
-          'startTime': Timestamp.fromDate(finalStartTime),
-          'endTime': Timestamp.fromDate(finalEndTime),
-          'rewardPoints': int.parse(rewardPointsController.text),
-          'location': GeoPoint(
-            double.parse(latitudeController.text),
-            double.parse(longitudeController.text),
-          ),
-        });
+      String? imageUrl;
 
+      // Handle image upload for new image
+      if (_pickedImage != null) {
+        imageUrl = await _uploadImageToStorage();
+      }
+
+      final DateTime finalStartTime = DateTime(
+        startDate!.year,
+        startDate!.month,
+        startDate!.day,
+        startTime!.hour,
+        startTime!.minute,
+      );
+
+      final DateTime finalEndTime = DateTime(
+        endDate!.year,
+        endDate!.month,
+        endDate!.day,
+        endTime!.hour,
+        endTime!.minute,
+      );
+
+      final Map<String, dynamic> eventData = {
+        'name': nameController.text,
+        'description': descriptionController.text,
+        'startTime': Timestamp.fromDate(finalStartTime),
+        'endTime': Timestamp.fromDate(finalEndTime),
+        'rewardPoints': int.parse(rewardPointsController.text),
+        'location': GeoPoint(
+          double.parse(latitudeController.text),
+          double.parse(longitudeController.text),
+        ),
+      };
+
+      if (_isEditing && _editingEventId != null) {
+        // Handle image update in edit mode
+        if (_isRemovingImage) {
+          // Delete old image if it exists and user wants to remove it
+          if (_currentImageUrl != null) {
+            await _deleteImageFromStorage(_currentImageUrl!);
+          }
+          eventData['image'] = FieldValue.delete();
+        } else if (imageUrl != null) {
+          // If new image is selected, delete old one and update with new URL
+          if (_currentImageUrl != null) {
+            await _deleteImageFromStorage(_currentImageUrl!);
+          }
+          eventData['image'] = imageUrl;
+        }
+        // If no image changes, don't update the image field
+
+        await _firestore
+            .collection('events')
+            .doc(_editingEventId)
+            .update(eventData);
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text("Event Updated Successfully!")),
         );
       } else {
         // Create new event
-        await _firestore.collection('events').add({
-          'name': nameController.text,
-          'description': descriptionController.text,
-          'startTime': Timestamp.fromDate(finalStartTime),
-          'endTime': Timestamp.fromDate(finalEndTime),
-          'rewardPoints': int.parse(rewardPointsController.text),
-          'location': GeoPoint(
-            double.parse(latitudeController.text),
-            double.parse(longitudeController.text),
-          ),
-          'createdDate': Timestamp.now(),
-          'status': 'Upcoming',
-        });
+        if (imageUrl != null) {
+          eventData['image'] = imageUrl;
+        }
+        eventData['createdDate'] = Timestamp.now();
+        eventData['status'] = 'Upcoming';
 
+        await _firestore.collection('events').add(eventData);
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text("Event Created Successfully!")),
         );
@@ -305,6 +312,38 @@ class _AdminPanelState extends State<AdminPanel> {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text("Error: $e")),
       );
+    }
+  }
+
+  Future<void> _deleteEvent(String id) async {
+    bool confirmDelete = await _showDeleteConfirmationDialog();
+    if (confirmDelete) {
+      try {
+        // Get the event data first
+        final DocumentSnapshot event =
+            await _firestore.collection('events').doc(id).get();
+        final data = event.data() as Map<String, dynamic>?;
+
+        // Delete the image from storage if it exists
+        if (data != null && data['image'] != null) {
+          await _deleteImageFromStorage(data['image']);
+        }
+
+        // Delete the event document
+        await _firestore.collection('events').doc(id).delete();
+
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text("Event Deleted Successfully!")),
+        );
+
+        if (_isEditing && _editingEventId == id) {
+          _clearForm();
+        }
+      } catch (e) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text("Error: $e")),
+        );
+      }
     }
   }
 
@@ -321,28 +360,10 @@ class _AdminPanelState extends State<AdminPanel> {
       endTime = null;
       _isEditing = false;
       _editingEventId = null;
+      _pickedImage = null;
+      _currentImageUrl = null;
+      _isRemovingImage = false;
     });
-  }
-
-  Future<void> _deleteEvent(String id) async {
-    bool confirmDelete = await _showDeleteConfirmationDialog();
-    if (confirmDelete) {
-      try {
-        await _firestore.collection('events').doc(id).delete();
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text("Event Deleted Successfully!")),
-        );
-
-        // If the deleted event was being edited, clear the form and reset the state
-        if (_isEditing && _editingEventId == id) {
-          _clearForm();
-        }
-      } catch (e) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text("Error: $e")),
-        );
-      }
-    }
   }
 
   Future<bool> _showDeleteConfirmationDialog() async {
@@ -376,10 +397,6 @@ class _AdminPanelState extends State<AdminPanel> {
         GeoPoint location = eventData['location'];
         latitudeController.text = location.latitude.toString();
         longitudeController.text = location.longitude.toString();
-      } else {
-        // Handle invalid or missing location data
-        latitudeController.text = '0.0';
-        longitudeController.text = '0.0';
       }
 
       startDate = (eventData['startTime'] as Timestamp).toDate();
@@ -389,6 +406,9 @@ class _AdminPanelState extends State<AdminPanel> {
 
       _isEditing = true;
       _editingEventId = id;
+      _currentImageUrl = eventData['image'];
+      _pickedImage = null;
+      _isRemovingImage = false;
     });
   }
 
@@ -495,15 +515,63 @@ class _AdminPanelState extends State<AdminPanel> {
                     ],
                   ),
                   SizedBox(height: 15),
+                  Text("Event Image",
+                      style: TextStyle(fontWeight: FontWeight.bold)),
+                  SizedBox(height: 10),
                   Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
                       ElevatedButton(
-                        onPressed: _selectAndUploadImage,
-                        child: Text('Upload Image'),
+                        onPressed: _pickImage,
+                        child: Text('Select'),
                       ),
-                      SizedBox(width: 10),
-                      if (_pickedImage != null) Text('Image Selected'),
+                      if (_pickedImage != null || _currentImageUrl != null)
+                        ElevatedButton(
+                          onPressed: () {
+                            setState(() {
+                              _pickedImage = null;
+                              _isRemovingImage = true;
+                            });
+                          },
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: Colors.red,
+                          ),
+                          child: Text('Remove'),
+                        ),
                     ],
+                  ),
+                  SizedBox(height: 10),
+                  // Image preview section
+                  Container(
+                    height: 200,
+                    width: double.infinity,
+                    decoration: BoxDecoration(
+                      border: Border.all(color: Colors.grey),
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: !_isRemovingImage
+                        ? (_pickedImage != null
+                            ? ClipRRect(
+                                borderRadius: BorderRadius.circular(8),
+                                child: Image.file(
+                                  File(_pickedImage!.path),
+                                  fit: BoxFit.cover,
+                                ),
+                              )
+                            : _currentImageUrl != null
+                                ? ClipRRect(
+                                    borderRadius: BorderRadius.circular(8),
+                                    child: Image.network(
+                                      _currentImageUrl!,
+                                      fit: BoxFit.cover,
+                                    ),
+                                  )
+                                : Center(
+                                    child: Text('No image selected'),
+                                  ))
+                        : Center(
+                            child: Text('No image selected'),
+                          ),
                   ),
                   SizedBox(height: 15),
                   Column(
@@ -551,12 +619,24 @@ class _AdminPanelState extends State<AdminPanel> {
                       final events = snapshot.data!.docs;
                       return ListView.builder(
                         shrinkWrap: true,
+                        physics: NeverScrollableScrollPhysics(),
                         itemCount: events.length,
                         itemBuilder: (context, index) {
                           var eventData =
                               events[index].data() as Map<String, dynamic>;
                           var eventId = events[index].id;
                           return ListTile(
+                            leading: eventData['image'] != null
+                                ? ClipRRect(
+                                    borderRadius: BorderRadius.circular(8),
+                                    child: Image.network(
+                                      eventData['image'],
+                                      width: 50,
+                                      height: 50,
+                                      fit: BoxFit.cover,
+                                    ),
+                                  )
+                                : Icon(Icons.image_not_supported),
                             title: Text(eventData['name']),
                             subtitle: Text(eventData['description']),
                             trailing: Row(
@@ -581,6 +661,7 @@ class _AdminPanelState extends State<AdminPanel> {
                 ],
               ),
             ),
+            //Logout
             Padding(
               padding: const EdgeInsets.only(bottom: 16.0, top: 16.0),
               child: ElevatedButton(
