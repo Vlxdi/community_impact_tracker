@@ -28,4 +28,5 @@ The Community Impact Tracker is a mobile (on the go) app designed to track and e
 ![image](https://github.com/user-attachments/assets/aee09b36-4f50-44a4-a59f-3b55630ef7ec)
 ![image](https://github.com/user-attachments/assets/a0c8aa97-7b69-42bd-8247-c0cb88479c42)
 ![image](https://github.com/user-attachments/assets/d291f119-9d25-4895-90a1-15b7d2285e8a)
+![Image](https://github.com/user-attachments/assets/51500249-ad52-415e-977e-2833bebeb657)
 
