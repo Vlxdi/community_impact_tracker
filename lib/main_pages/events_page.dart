@@ -31,16 +31,18 @@ class _EventsPageState extends State<EventsPage> {
 
       setState(() {
         events = querySnapshot.docs.map((doc) {
-          print("Processing event: ${doc['name']}");
+          Map<String, dynamic> data = doc.data() as Map<String, dynamic>;
+          print("Processing event: ${data['name']}");
 
           return {
-            'name': doc['name'],
-            'description': doc['description'],
-            'startTime': (doc['startTime'] as Timestamp).toDate(),
-            'endTime': (doc['endTime'] as Timestamp).toDate(),
-            'createdDate': (doc['createdDate'] as Timestamp).toDate(),
-            'rewardPoints': doc['rewardPoints'],
-            'status': doc['status'],
+            'name': data['name'],
+            'description': data['description'],
+            'image': data['image'] ?? '', // Handle missing image field
+            'startTime': (data['startTime'] as Timestamp).toDate(),
+            'endTime': (data['endTime'] as Timestamp).toDate(),
+            'createdDate': (data['createdDate'] as Timestamp).toDate(),
+            'rewardPoints': data['rewardPoints'],
+            'status': data['status'],
           };
         }).toList();
         isLoading = false;
@@ -245,6 +247,7 @@ class _EventsPageState extends State<EventsPage> {
                 return EventCard(
                   name: event['name'],
                   description: event['description'],
+                  image: event['image'],
                   startTime: event['startTime'],
                   endTime: event['endTime'],
                   createdDate: event['createdDate'],
@@ -266,6 +269,7 @@ class _EventsPageState extends State<EventsPage> {
 class EventCard extends StatelessWidget {
   final String name;
   final String description;
+  final String? image;
   final DateTime startTime;
   final DateTime endTime;
   final DateTime createdDate;
@@ -278,6 +282,7 @@ class EventCard extends StatelessWidget {
     super.key,
     required this.name,
     required this.description,
+    this.image,
     required this.startTime,
     required this.endTime,
     required this.createdDate,
@@ -424,16 +429,29 @@ class EventCard extends StatelessWidget {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  // Event Image
-                  ClipRRect(
-                    borderRadius: BorderRadius.circular(10),
-                    child: Image.network(
-                      'https://via.placeholder.com/300',
+                  if (image != null && image!.isNotEmpty)
+                    Container(
                       height: 200,
                       width: double.infinity,
-                      fit: BoxFit.cover,
+                      child: ClipRRect(
+                        borderRadius: BorderRadius.circular(8),
+                        child: Image.network(
+                          image!,
+                          fit: BoxFit.cover,
+                        ),
+                      ),
+                    )
+                  else
+                    Container(
+                      height: 200,
+                      width: double.infinity,
+                      color: Colors.grey[300],
+                      child: Icon(
+                        Icons.image_not_supported,
+                        size: 40,
+                        color: Colors.grey[600],
+                      ),
                     ),
-                  ),
                   SizedBox(height: 16),
 
                   // Event Title
@@ -492,6 +510,24 @@ class EventCard extends StatelessWidget {
           ),
         );
       },
+    );
+  }
+}
+
+class ClipRect extends StatelessWidget {
+  const ClipRect({
+    super.key,
+    required this.image,
+  });
+
+  final String? image;
+
+  @override
+  Widget build(BuildContext context) {
+    return Image.network(
+      image!,
+      fit: BoxFit.cover,
+      // ... loading and error builders
     );
   }
 }
