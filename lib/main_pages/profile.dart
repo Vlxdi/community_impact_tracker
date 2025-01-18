@@ -1,10 +1,12 @@
 import 'dart:io';
+import 'package:community_impact_tracker/utils/AddSpace.dart';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_storage/firebase_storage.dart';
-
+import '../widgets/achievement.dart';
+import '../widgets/badge.dart';
 import 'settings/settings.dart';
 
 class ProfilePage extends StatefulWidget {
@@ -130,6 +132,7 @@ class _ProfilePageState extends State<ProfilePage> {
     }
   }
 
+  // Change image dialog
   void _showProfilePictureDialog() {
     showDialog(
       context: context,
@@ -218,19 +221,19 @@ class _ProfilePageState extends State<ProfilePage> {
                   ),
                 ),
               ),
-              SizedBox(height: 10),
+              Vspace(10),
               Center(
                 child: Text(
                   _username,
                   style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
                 ),
               ),
-              SizedBox(height: 10),
+              Vspace(10),
               // User level and wallet balance
-              const Center(
+              Center(
                 child: Column(
                   children: [
-                    Row(
+                    const Row(
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
                         Icon(Icons.keyboard_double_arrow_up_rounded,
@@ -240,8 +243,8 @@ class _ProfilePageState extends State<ProfilePage> {
                                 fontSize: 18, fontWeight: FontWeight.bold)),
                       ],
                     ),
-                    SizedBox(height: 5),
-                    Row(
+                    Vspace(5),
+                    const Row(
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
                         Icon(Icons.account_balance_wallet_rounded, size: 30),
@@ -253,12 +256,12 @@ class _ProfilePageState extends State<ProfilePage> {
                   ],
                 ),
               ),
-              SizedBox(height: 30),
+              Vspace(30),
 
               // Badges section
               Text("Badges",
                   style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
-              SizedBox(height: 10),
+              Vspace(10),
               SizedBox(
                 height: 100,
                 child: SingleChildScrollView(
@@ -275,12 +278,12 @@ class _ProfilePageState extends State<ProfilePage> {
                 ),
               ),
 
-              SizedBox(height: 20),
+              Vspace(10),
 
               // Achievements section
               Text("Achievements",
                   style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
-              SizedBox(height: 10),
+              Vspace(10),
               SingleChildScrollView(
                 child: Column(
                   children: [
@@ -294,65 +297,6 @@ class _ProfilePageState extends State<ProfilePage> {
             ],
           ),
         ),
-      ),
-    );
-  }
-}
-
-class BadgeWidget extends StatelessWidget {
-  final String badgeName;
-
-  const BadgeWidget({super.key, required this.badgeName});
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      width: 80,
-      height: 80,
-      decoration: BoxDecoration(
-        color: Colors.blueAccent,
-        borderRadius: BorderRadius.circular(10),
-      ),
-      child: Center(
-        child: Text(
-          badgeName,
-          style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
-          textAlign: TextAlign.center,
-        ),
-      ),
-    );
-  }
-}
-
-class AchievementWidget extends StatelessWidget {
-  final String achievementName;
-
-  const AchievementWidget({super.key, required this.achievementName});
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: EdgeInsets.all(12),
-      margin: EdgeInsets.symmetric(vertical: 4),
-      decoration: BoxDecoration(
-        color: Colors.greenAccent,
-        borderRadius: BorderRadius.circular(10),
-      ),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.start,
-        children: [
-          Icon(Icons.star, color: Colors.yellow),
-          SizedBox(width: 10),
-          Expanded(
-            // Wrap the text in Expanded
-            child: Text(
-              achievementName,
-              softWrap: true,
-              overflow: TextOverflow.visible,
-              style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
-            ),
-          ),
-        ],
       ),
     );
   }

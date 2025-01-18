@@ -1,5 +1,6 @@
 import 'dart:io';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:community_impact_tracker/utils/AddSpace.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_storage/firebase_storage.dart';
 import 'package:flutter/material.dart';
@@ -441,24 +442,21 @@ class _AdminPanelState extends State<AdminPanel> {
                     keyboardType: TextInputType.number,
                     inputFormatters: [FilteringTextInputFormatter.digitsOnly],
                   ),
-                  SizedBox(
-                    height: 10,
-                  ),
+
+                  Vspace(10),
                   Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text("Start Date and Time",
                           style: TextStyle(fontWeight: FontWeight.bold)),
-                      SizedBox(
-                        height: 5,
-                      ),
+                      Vspace(5),
                       Row(
                         children: [
                           ElevatedButton(
                             onPressed: _pickStartDateTime,
                             child: Text("Select"),
                           ),
-                          SizedBox(width: 16),
+                          Hspace(16),
                           Text(
                             startDate != null
                                 ? "${startDate!.toLocal()}".split('.')[0]
@@ -467,19 +465,17 @@ class _AdminPanelState extends State<AdminPanel> {
                           ),
                         ],
                       ),
-                      SizedBox(height: 10),
+                      Vspace(10),
                       Text("End Date and Time",
                           style: TextStyle(fontWeight: FontWeight.bold)),
-                      SizedBox(
-                        height: 5,
-                      ),
+                      Vspace(5),
                       Row(
                         children: [
                           ElevatedButton(
                             onPressed: _pickEndDateTime,
                             child: Text("Select"),
                           ),
-                          SizedBox(width: 16),
+                          Hspace(16),
                           Text(
                             endDate != null
                                 ? "${endDate!.toLocal()}".split('.')[0]
@@ -490,9 +486,7 @@ class _AdminPanelState extends State<AdminPanel> {
                       ),
                     ],
                   ),
-                  SizedBox(
-                    height: 10,
-                  ),
+                  Vspace(10),
                   Text("Location",
                       style: TextStyle(fontWeight: FontWeight.bold)),
                   Row(
@@ -504,7 +498,7 @@ class _AdminPanelState extends State<AdminPanel> {
                           keyboardType: TextInputType.number,
                         ),
                       ),
-                      SizedBox(width: 16),
+                      Hspace(16),
                       Expanded(
                         child: TextField(
                           controller: longitudeController,
@@ -514,7 +508,7 @@ class _AdminPanelState extends State<AdminPanel> {
                       ),
                     ],
                   ),
-                  SizedBox(height: 15),
+                  Vspace(15),
                   Text("Event Image",
                       style: TextStyle(fontWeight: FontWeight.bold)),
                   SizedBox(height: 10),
@@ -540,7 +534,7 @@ class _AdminPanelState extends State<AdminPanel> {
                         ),
                     ],
                   ),
-                  SizedBox(height: 10),
+                  Vspace(10),
                   // Image preview section
                   Container(
                     height: 200,
@@ -573,7 +567,7 @@ class _AdminPanelState extends State<AdminPanel> {
                             child: Text('No image selected'),
                           ),
                   ),
-                  SizedBox(height: 15),
+                  Vspace(15),
                   Column(
                     spacing: 5,
                     children: [
@@ -588,9 +582,7 @@ class _AdminPanelState extends State<AdminPanel> {
                       ),
                     ],
                   ),
-                  SizedBox(
-                    height: 10,
-                  ),
+                  Vspace(10),
                   if (_isEditing)
                     ElevatedButton(
                       onPressed: _clearForm,
@@ -607,9 +599,7 @@ class _AdminPanelState extends State<AdminPanel> {
                     style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
                     textAlign: TextAlign.center,
                   ),
-                  SizedBox(
-                    height: 5,
-                  ),
+                  Vspace(5),
                   StreamBuilder<QuerySnapshot>(
                     stream: _firestore.collection('events').snapshots(),
                     builder: (context, snapshot) {

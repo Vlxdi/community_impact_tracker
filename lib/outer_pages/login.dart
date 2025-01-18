@@ -1,3 +1,4 @@
+import 'package:community_impact_tracker/utils/AddSpace.dart';
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
@@ -180,7 +181,7 @@ class _LoginPageState extends State<LoginPage> {
                 _isRegistering ? 'Sign up' : 'Login',
                 style: TextStyle(fontSize: 26, fontWeight: FontWeight.bold),
               ),
-              SizedBox(height: 8),
+              Vspace(8),
               Text(
                 _isRegistering
                     ? 'Create a free account with your email.'
@@ -188,7 +189,7 @@ class _LoginPageState extends State<LoginPage> {
                 style: TextStyle(fontSize: 16, color: Colors.grey[600]),
                 textAlign: TextAlign.center,
               ),
-              SizedBox(height: 16),
+              Vspace(16),
               Container(
                 padding: EdgeInsets.symmetric(horizontal: 16),
                 decoration: BoxDecoration(
@@ -242,7 +243,7 @@ class _LoginPageState extends State<LoginPage> {
                   ],
                 ),
               ),
-              SizedBox(height: 20),
+              Vspace(20),
               ElevatedButton(
                 onPressed: _isRegistering ? _register : _login,
                 style: ElevatedButton.styleFrom(
@@ -257,7 +258,7 @@ class _LoginPageState extends State<LoginPage> {
                   style: TextStyle(fontSize: 16, color: Colors.white),
                 ),
               ),
-              SizedBox(height: 12),
+              Vspace(12),
               TextButton(
                 onPressed: () {
                   setState(() {

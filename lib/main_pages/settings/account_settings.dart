@@ -1,4 +1,5 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:community_impact_tracker/utils/AddSpace.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 
@@ -108,7 +109,7 @@ class _AccountSettingsPageState extends State<AccountSettingsPage> {
                 hintText: 'Enter your display name',
               ),
             ),
-            const SizedBox(height: 16),
+            Vspace(16),
 
             // Email field
             TextField(
@@ -119,7 +120,7 @@ class _AccountSettingsPageState extends State<AccountSettingsPage> {
               ),
               keyboardType: TextInputType.emailAddress,
             ),
-            const SizedBox(height: 16),
+            Vspace(16),
 
             // Update Profile button
             ElevatedButton(
@@ -134,7 +135,7 @@ class _AccountSettingsPageState extends State<AccountSettingsPage> {
               'Change Password',
               style: Theme.of(context).textTheme.titleLarge,
             ),
-            const SizedBox(height: 16),
+            Vspace(16),
 
             // Current password field
             TextField(
@@ -144,7 +145,7 @@ class _AccountSettingsPageState extends State<AccountSettingsPage> {
               ),
               obscureText: true,
             ),
-            const SizedBox(height: 16),
+            Vspace(16),
 
             // New password field
             TextField(
@@ -154,7 +155,7 @@ class _AccountSettingsPageState extends State<AccountSettingsPage> {
               ),
               obscureText: true,
             ),
-            const SizedBox(height: 16),
+            Vspace(16),
 
             // Change Password button
             ElevatedButton(
