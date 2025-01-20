@@ -1,17 +1,18 @@
 import 'dart:ui';
-
 import 'package:community_impact_tracker/utils/AddSpace.dart';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
+import 'package:google_maps_flutter/google_maps_flutter.dart';
 
-class EventCard extends StatelessWidget {
+class EventCard extends StatefulWidget {
   final String name;
   final String description;
   final String? image;
   final DateTime startTime;
   final DateTime endTime;
   final DateTime createdDate;
-  // final GeoPoint location;
+  final double latitude;
+  final double longitude;
   final int rewardPoints;
   final String status;
   final VoidCallback onSignIn;
@@ -24,11 +25,33 @@ class EventCard extends StatelessWidget {
     required this.startTime,
     required this.endTime,
     required this.createdDate,
-    //required this.location,
+    required this.latitude,
+    required this.longitude,
     required this.rewardPoints,
     required this.status,
     required this.onSignIn,
   });
+
+  @override
+  State<EventCard> createState() => _EventCardState();
+}
+
+class _EventCardState extends State<EventCard> {
+  GoogleMapController? mapController;
+  late final Set<Marker> markers;
+
+  @override
+  void initState() {
+    super.initState();
+    // Initialize markers with event location
+    markers = {
+      Marker(
+        markerId: MarkerId('eventLocation'),
+        position: LatLng(widget.latitude, widget.longitude),
+        infoWindow: InfoWindow(title: widget.name),
+      ),
+    };
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -48,31 +71,43 @@ class EventCard extends StatelessWidget {
       ),
       child: Row(
         children: [
-          // Left side: Map, title, and description (70% or 75%)
           Flexible(
             flex: 7,
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  name.isNotEmpty ? name : "Event Name",
+                  widget.name,
                   style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
                 ),
                 Vspace(4),
                 Text(
-                  description.isNotEmpty
-                      ? description
-                      : "No description provided",
+                  widget.description,
                   style: TextStyle(fontSize: 14, color: Colors.grey[700]),
                   maxLines: 2,
-                  overflow: TextOverflow.fade,
+                  overflow: TextOverflow.ellipsis,
                 ),
                 Vspace(8),
-                //Add Google maps API
                 Container(
                   height: 170,
-                  color: Colors.grey[300],
-                  child: Center(child: Text("Map here")),
+                  decoration: BoxDecoration(
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  clipBehavior: Clip.antiAlias,
+                  child: GoogleMap(
+                    onMapCreated: (GoogleMapController controller) {
+                      mapController = controller;
+                    },
+                    initialCameraPosition: CameraPosition(
+                      target: LatLng(widget.latitude, widget.longitude),
+                      zoom: 15.0,
+                    ),
+                    markers: markers,
+                    mapType: MapType.normal,
+                    zoomControlsEnabled: false,
+                    mapToolbarEnabled: false,
+                    myLocationButtonEnabled: false,
+                  ),
                 ),
               ],
             ),
@@ -118,9 +153,9 @@ class EventCard extends StatelessWidget {
                     crossAxisAlignment: CrossAxisAlignment.center,
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
-                      Text("Starts: ${formatDate(startTime)}"),
-                      Text("Ends: ${formatDate(endTime)}"),
-                      Text("Reward: $rewardPoints⭐"),
+                      Text("Starts: ${formatDate(widget.startTime)}"),
+                      Text("Ends: ${formatDate(widget.endTime)}"),
+                      Text("Reward: ${widget.rewardPoints}⭐"),
                       Vspace(8),
                       ElevatedButton(
                         onPressed: () {
@@ -170,14 +205,14 @@ class EventCard extends StatelessWidget {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  if (image != null && image!.isNotEmpty)
+                  if (widget.image != null && widget.image!.isNotEmpty)
                     Container(
                       height: 200,
                       width: double.infinity,
                       child: ClipRRect(
                         borderRadius: BorderRadius.circular(8),
                         child: Image.network(
-                          image!,
+                          widget.image!,
                           fit: BoxFit.cover,
                         ),
                       ),
@@ -197,7 +232,7 @@ class EventCard extends StatelessWidget {
 
                   // Event Title
                   Text(
-                    name.isNotEmpty ? name : "Event Name",
+                    widget.name.isNotEmpty ? widget.name : "Event Name",
                     style: TextStyle(
                       fontSize: 22,
                       fontWeight: FontWeight.bold,
@@ -205,10 +240,9 @@ class EventCard extends StatelessWidget {
                   ),
                   Vspace(8),
 
-                  // Event Description
                   Text(
-                    description.isNotEmpty
-                        ? description
+                    widget.description.isNotEmpty
+                        ? widget.description
                         : "No description provided",
                     style: TextStyle(fontSize: 16),
                   ),
@@ -216,7 +250,7 @@ class EventCard extends StatelessWidget {
 
                   // Event Date & Location
                   Text(
-                    'Created on: ${formatDate(createdDate)}',
+                    'Created on: ${formatDate(widget.createdDate)}',
                     style: TextStyle(fontSize: 14, color: Colors.grey),
                   ),
                   Vspace(4),

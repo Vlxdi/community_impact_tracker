@@ -5,6 +5,8 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_storage/firebase_storage.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:geolocator/geolocator.dart';
+import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:image_picker/image_picker.dart';
 
 class AdminPanel extends StatefulWidget {
@@ -28,6 +30,10 @@ class _AdminPanelState extends State<AdminPanel> {
   TimeOfDay? startTime;
   DateTime? endDate;
   TimeOfDay? endTime;
+
+  GoogleMapController? mapController;
+  LatLng? selectedLocation;
+  Set<Marker> markers = {};
 
   final FirebaseAuth _auth = FirebaseAuth.instance;
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
@@ -218,6 +224,55 @@ class _AdminPanelState extends State<AdminPanel> {
     }
   }
 
+  @override
+  void initState() {
+    super.initState();
+    _getCurrentLocation();
+  }
+
+  Future<void> _getCurrentLocation() async {
+    try {
+      LocationPermission permission = await Geolocator.checkPermission();
+      if (permission == LocationPermission.denied) {
+        permission = await Geolocator.requestPermission();
+      }
+
+      if (permission == LocationPermission.whileInUse ||
+          permission == LocationPermission.always) {
+        Position position = await Geolocator.getCurrentPosition();
+        setState(() {
+          selectedLocation = LatLng(position.latitude, position.longitude);
+          _updateMarker();
+        });
+      }
+    } catch (e) {
+      print('Error getting location: $e');
+      // Default location if unable to get current location
+      setState(() {
+        selectedLocation = LatLng(0, 0);
+        _updateMarker();
+      });
+    }
+  }
+
+  void _updateMarker() {
+    if (selectedLocation != null) {
+      markers.clear();
+      markers.add(
+        Marker(
+          markerId: MarkerId('selected_location'),
+          position: selectedLocation!,
+          draggable: true,
+          onDragEnd: (newPosition) {
+            setState(() {
+              selectedLocation = newPosition;
+            });
+          },
+        ),
+      );
+    }
+  }
+
   Future<void> _createOrUpdateEvent() async {
     if (nameController.text.isEmpty ||
         descriptionController.text.isEmpty ||
@@ -226,10 +281,10 @@ class _AdminPanelState extends State<AdminPanel> {
         endDate == null ||
         endTime == null ||
         rewardPointsController.text.isEmpty ||
-        latitudeController.text.isEmpty ||
-        longitudeController.text.isEmpty) {
+        selectedLocation == null) {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text("Please fill all fields!")),
+        SnackBar(
+            content: Text("Please fill all fields and select a location!")),
       );
       return;
     }
@@ -265,8 +320,8 @@ class _AdminPanelState extends State<AdminPanel> {
         'endTime': Timestamp.fromDate(finalEndTime),
         'rewardPoints': int.parse(rewardPointsController.text),
         'location': GeoPoint(
-          double.parse(latitudeController.text),
-          double.parse(longitudeController.text),
+          selectedLocation!.latitude,
+          selectedLocation!.longitude,
         ),
       };
 
@@ -396,8 +451,8 @@ class _AdminPanelState extends State<AdminPanel> {
 
       if (eventData['location'] is GeoPoint) {
         GeoPoint location = eventData['location'];
-        latitudeController.text = location.latitude.toString();
-        longitudeController.text = location.longitude.toString();
+        selectedLocation = LatLng(location.latitude, location.longitude);
+        _updateMarker();
       }
 
       startDate = (eventData['startTime'] as Timestamp).toDate();
@@ -411,6 +466,50 @@ class _AdminPanelState extends State<AdminPanel> {
       _pickedImage = null;
       _isRemovingImage = false;
     });
+  }
+
+  Widget _buildMapSelector() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text("Event Location", style: TextStyle(fontWeight: FontWeight.bold)),
+        Vspace(10),
+        Container(
+          height: 300,
+          decoration: BoxDecoration(
+            border: Border.all(color: Colors.grey),
+            borderRadius: BorderRadius.circular(8),
+          ),
+          child: ClipRRect(
+            borderRadius: BorderRadius.circular(8),
+            child: GoogleMap(
+              onMapCreated: (GoogleMapController controller) {
+                mapController = controller;
+              },
+              initialCameraPosition: CameraPosition(
+                target: selectedLocation ?? LatLng(0, 0),
+                zoom: 15,
+              ),
+              markers: markers,
+              onTap: (LatLng position) {
+                setState(() {
+                  selectedLocation = position;
+                  _updateMarker();
+                });
+              },
+            ),
+          ),
+        ),
+        if (selectedLocation != null)
+          Padding(
+            padding: const EdgeInsets.only(top: 8.0),
+            child: Text(
+              'Selected: ${selectedLocation!.latitude.toStringAsFixed(6)}, ${selectedLocation!.longitude.toStringAsFixed(6)}',
+              style: TextStyle(fontSize: 12, color: Colors.grey[600]),
+            ),
+          ),
+      ],
+    );
   }
 
   @override
@@ -491,21 +590,7 @@ class _AdminPanelState extends State<AdminPanel> {
                       style: TextStyle(fontWeight: FontWeight.bold)),
                   Row(
                     children: [
-                      Expanded(
-                        child: TextField(
-                          controller: latitudeController,
-                          decoration: InputDecoration(labelText: "Latitude"),
-                          keyboardType: TextInputType.number,
-                        ),
-                      ),
-                      Hspace(16),
-                      Expanded(
-                        child: TextField(
-                          controller: longitudeController,
-                          decoration: InputDecoration(labelText: "Longitude"),
-                          keyboardType: TextInputType.number,
-                        ),
-                      ),
+                      _buildMapSelector(),
                     ],
                   ),
                   Vspace(15),

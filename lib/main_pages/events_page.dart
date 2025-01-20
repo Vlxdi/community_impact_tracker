@@ -32,17 +32,19 @@ class _EventsPageState extends State<EventsPage> {
       setState(() {
         events = querySnapshot.docs.map((doc) {
           Map<String, dynamic> data = doc.data() as Map<String, dynamic>;
-          print("Processing event: ${data['name']}");
+          GeoPoint location = data['location'] as GeoPoint;
 
           return {
             'name': data['name'],
             'description': data['description'],
-            'image': data['image'] ?? '', // Handle missing image field
+            'image': data['image'] ?? '',
             'startTime': (data['startTime'] as Timestamp).toDate(),
             'endTime': (data['endTime'] as Timestamp).toDate(),
             'createdDate': (data['createdDate'] as Timestamp).toDate(),
             'rewardPoints': data['rewardPoints'],
             'status': data['status'],
+            'latitude': location.latitude,
+            'longitude': location.longitude,
           };
         }).toList();
         isLoading = false;
@@ -249,7 +251,8 @@ class _EventsPageState extends State<EventsPage> {
                   startTime: event['startTime'],
                   endTime: event['endTime'],
                   createdDate: event['createdDate'],
-                  //location: event['location'],
+                  latitude: event['latitude'],
+                  longitude: event['longitude'],
                   rewardPoints: event['rewardPoints'],
                   status: event['status'],
                   onSignIn: () => handleSignIn(index),
