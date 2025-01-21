@@ -40,6 +40,7 @@ class _AdminPanelState extends State<AdminPanel> {
 
   bool _isEditing = false;
   String? _editingEventId;
+  Map<String, dynamic> _initialFormState = {};
 
   void _logout(BuildContext context) async {
     bool confirmLogout = await _showLogoutConfirmationDialog();
@@ -230,49 +231,6 @@ class _AdminPanelState extends State<AdminPanel> {
     _getCurrentLocation();
   }
 
-  Future<void> _getCurrentLocation() async {
-    try {
-      LocationPermission permission = await Geolocator.checkPermission();
-      if (permission == LocationPermission.denied) {
-        permission = await Geolocator.requestPermission();
-      }
-
-      if (permission == LocationPermission.whileInUse ||
-          permission == LocationPermission.always) {
-        Position position = await Geolocator.getCurrentPosition();
-        setState(() {
-          selectedLocation = LatLng(position.latitude, position.longitude);
-          _updateMarker();
-        });
-      }
-    } catch (e) {
-      print('Error getting location: $e');
-      // Default location if unable to get current location
-      setState(() {
-        selectedLocation = LatLng(0, 0);
-        _updateMarker();
-      });
-    }
-  }
-
-  void _updateMarker() {
-    if (selectedLocation != null) {
-      markers.clear();
-      markers.add(
-        Marker(
-          markerId: MarkerId('selected_location'),
-          position: selectedLocation!,
-          draggable: true,
-          onDragEnd: (newPosition) {
-            setState(() {
-              selectedLocation = newPosition;
-            });
-          },
-        ),
-      );
-    }
-  }
-
   Future<void> _createOrUpdateEvent() async {
     if (nameController.text.isEmpty ||
         descriptionController.text.isEmpty ||
@@ -443,7 +401,15 @@ class _AdminPanelState extends State<AdminPanel> {
         false;
   }
 
-  void _editEvent(Map<String, dynamic> eventData, String id) {
+  void _editEvent(Map<String, dynamic> eventData, String id) async {
+    if (_hasUnsavedChanges()) {
+      bool proceed = await _showUnsavedChangesDialog();
+      if (!proceed) {
+        return; // Do nothing if the user cancels
+      }
+    }
+
+    // Set form data for editing
     setState(() {
       nameController.text = eventData['name'];
       descriptionController.text = eventData['description'];
@@ -465,50 +431,181 @@ class _AdminPanelState extends State<AdminPanel> {
       _currentImageUrl = eventData['image'];
       _pickedImage = null;
       _isRemovingImage = false;
+
+      // Set the initial state
+      _setInitialFormState();
     });
   }
 
-  Widget _buildMapSelector() {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text("Event Location", style: TextStyle(fontWeight: FontWeight.bold)),
-        Vspace(10),
-        Container(
-          height: 300,
-          decoration: BoxDecoration(
-            border: Border.all(color: Colors.grey),
-            borderRadius: BorderRadius.circular(8),
-          ),
-          child: ClipRRect(
-            borderRadius: BorderRadius.circular(8),
-            child: GoogleMap(
-              onMapCreated: (GoogleMapController controller) {
-                mapController = controller;
-              },
-              initialCameraPosition: CameraPosition(
-                target: selectedLocation ?? LatLng(0, 0),
-                zoom: 15,
+  void _setInitialFormState() {
+    _initialFormState = {
+      'name': nameController.text,
+      'description': descriptionController.text,
+      'rewardPoints': rewardPointsController.text,
+      'startDate': startDate,
+      'startTime': startTime,
+      'endDate': endDate,
+      'endTime': endTime,
+      'location': selectedLocation,
+      'image': _pickedImage,
+    };
+  }
+
+  bool _hasUnsavedChanges() {
+    return _initialFormState['name'] != nameController.text ||
+        _initialFormState['description'] != descriptionController.text ||
+        _initialFormState['rewardPoints'] != rewardPointsController.text ||
+        _initialFormState['startDate'] != startDate ||
+        _initialFormState['startTime'] != startTime ||
+        _initialFormState['endDate'] != endDate ||
+        _initialFormState['endTime'] != endTime ||
+        _initialFormState['location'] != selectedLocation ||
+        _initialFormState['image'] != _pickedImage;
+  }
+
+  Future<bool> _showUnsavedChangesDialog() async {
+    return await showDialog<bool>(
+          context: context,
+          builder: (context) => AlertDialog(
+            title: Text('Unsaved Changes'),
+            content: Text(
+                'You have unsaved changes. Do you want to discard them and continue?'),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.of(context).pop(false),
+                child: Text('Cancel'),
               ),
-              markers: markers,
-              onTap: (LatLng position) {
-                setState(() {
-                  selectedLocation = position;
-                  _updateMarker();
-                });
-              },
-            ),
+              TextButton(
+                onPressed: () => Navigator.of(context).pop(true),
+                child: Text('Discard'),
+              ),
+            ],
           ),
+        ) ??
+        false; // Default to false if the dialog is dismissed
+  }
+
+  Future<void> _getCurrentLocation() async {
+    try {
+      LocationPermission permission = await Geolocator.checkPermission();
+      if (permission == LocationPermission.denied) {
+        permission = await Geolocator.requestPermission();
+      }
+
+      if (permission == LocationPermission.denied) {
+        // If permission is still denied after requesting, use a default location
+        setState(() {
+          selectedLocation = LatLng(0, 0);
+          _updateMarker();
+        });
+        return;
+      }
+
+      if (permission == LocationPermission.deniedForever) {
+        // Handle permanently denied permissions
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+                'Location permissions are permanently denied. Please enable them in settings.'),
+            duration: Duration(seconds: 3),
+          ),
+        );
+        setState(() {
+          selectedLocation = LatLng(0, 0);
+          _updateMarker();
+        });
+        return;
+      }
+
+      if (permission == LocationPermission.whileInUse ||
+          permission == LocationPermission.always) {
+        Position position = await Geolocator.getCurrentPosition(
+          desiredAccuracy: LocationAccuracy.high,
+          timeLimit: Duration(seconds: 5),
+        );
+        setState(() {
+          selectedLocation = LatLng(position.latitude, position.longitude);
+          _updateMarker();
+        });
+      }
+    } catch (e) {
+      print('Error getting location: $e');
+      // Use a default location if unable to get current location
+      setState(() {
+        selectedLocation = LatLng(0, 0);
+        _updateMarker();
+      });
+    }
+  }
+
+  void _updateMarker() {
+    if (selectedLocation != null) {
+      markers.clear();
+      markers.add(
+        Marker(
+          markerId: MarkerId('selected_location'),
+          position: selectedLocation!,
+          draggable: true,
+          onDragEnd: (newPosition) {
+            setState(() {
+              selectedLocation = newPosition;
+            });
+          },
         ),
-        if (selectedLocation != null)
-          Padding(
-            padding: const EdgeInsets.only(top: 8.0),
-            child: Text(
-              'Selected: ${selectedLocation!.latitude.toStringAsFixed(6)}, ${selectedLocation!.longitude.toStringAsFixed(6)}',
-              style: TextStyle(fontSize: 12, color: Colors.grey[600]),
+      );
+    }
+  }
+
+  Widget _buildMapSelector() {
+    return Container(
+      width: MediaQuery.of(context).size.width - 32, // Full width minus padding
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text("Event Location", style: TextStyle(fontWeight: FontWeight.bold)),
+          SizedBox(height: 10),
+          Container(
+            height: 300,
+            width: double.infinity,
+            decoration: BoxDecoration(
+              border: Border.all(color: Colors.grey),
+              borderRadius: BorderRadius.circular(8),
+            ),
+            child: ClipRRect(
+              borderRadius: BorderRadius.circular(8),
+              child: selectedLocation == null
+                  ? Center(child: CircularProgressIndicator())
+                  : GoogleMap(
+                      onMapCreated: (GoogleMapController controller) {
+                        mapController = controller;
+                      },
+                      initialCameraPosition: CameraPosition(
+                        target: selectedLocation ?? LatLng(0, 0),
+                        zoom: 15,
+                      ),
+                      markers: markers,
+                      myLocationEnabled: true,
+                      myLocationButtonEnabled: true,
+                      zoomControlsEnabled: true,
+                      onTap: (LatLng position) {
+                        setState(() {
+                          selectedLocation = position;
+                          _updateMarker();
+                        });
+                      },
+                    ),
             ),
           ),
-      ],
+          if (selectedLocation != null)
+            Padding(
+              padding: const EdgeInsets.only(top: 8.0),
+              child: Text(
+                'Selected: ${selectedLocation!.latitude.toStringAsFixed(6)}, ${selectedLocation!.longitude.toStringAsFixed(6)}',
+                style: TextStyle(fontSize: 12, color: Colors.grey[600]),
+              ),
+            ),
+        ],
+      ),
     );
   }
 
@@ -588,11 +685,11 @@ class _AdminPanelState extends State<AdminPanel> {
                   Vspace(10),
                   Text("Location",
                       style: TextStyle(fontWeight: FontWeight.bold)),
-                  Row(
-                    children: [
-                      _buildMapSelector(),
-                    ],
+                  Padding(
+                    padding: const EdgeInsets.symmetric(vertical: 10),
+                    child: _buildMapSelector(),
                   ),
+
                   Vspace(15),
                   Text("Event Image",
                       style: TextStyle(fontWeight: FontWeight.bold)),
