@@ -118,7 +118,7 @@ class _AdminPanelState extends State<AdminPanel> {
 
     DateTime? pickedDate = await showDatePicker(
       context: context,
-      initialDate: endDate ?? DateTime.now(),
+      initialDate: endDate ?? startDate!.add(Duration(days: 1)),
       firstDate: startDate!,
       lastDate: DateTime(2100),
     );
@@ -715,8 +715,8 @@ class _AdminPanelState extends State<AdminPanel> {
                           ),
                           Hspace(16),
                           Text(
-                            startDate != null
-                                ? "${startDate!.toLocal()}".split('.')[0]
+                            startDate != null && startTime != null
+                                ? "${startDate!.year}-${startDate!.month.toString().padLeft(2, '0')}-${startDate!.day.toString().padLeft(2, '0')} ${startTime!.hour.toString().padLeft(2, '0')}:${startTime!.minute.toString().padLeft(2, '0')}"
                                 : "Not Selected",
                             style: TextStyle(fontSize: 16),
                           ),
@@ -734,8 +734,8 @@ class _AdminPanelState extends State<AdminPanel> {
                           ),
                           Hspace(16),
                           Text(
-                            endDate != null
-                                ? "${endDate!.toLocal()}".split('.')[0]
+                            endDate != null && endTime != null
+                                ? "${endDate!.year}-${endDate!.month.toString().padLeft(2, '0')}-${endDate!.day.toString().padLeft(2, '0')} ${endTime!.hour.toString().padLeft(2, '0')}:${endTime!.minute.toString().padLeft(2, '0')}"
                                 : "Not Selected",
                             style: TextStyle(fontSize: 16),
                           ),
@@ -833,6 +833,7 @@ class _AdminPanelState extends State<AdminPanel> {
                   SizedBox(
                     height: 16,
                   ),
+                  //Existing events list section
                   Text(
                     'Existing Events',
                     style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
