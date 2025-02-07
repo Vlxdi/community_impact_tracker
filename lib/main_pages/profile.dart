@@ -18,9 +18,14 @@ class ProfilePage extends StatefulWidget {
 
 class _ProfilePageState extends State<ProfilePage> {
   final FirebaseAuth _auth = FirebaseAuth.instance;
+  final FirebaseStorage _storage =
+      FirebaseStorage.instance; // Add storage instance
+  final FirebaseFirestore _firestore =
+      FirebaseFirestore.instance; // Add firestore instance
   final ImagePicker _picker = ImagePicker();
   ImageProvider<Object>? _profileImage;
   String _username = "Loading...";
+  bool _uploading = false; // Add uploading state
 
   @override
   void initState() {
@@ -65,14 +70,11 @@ class _ProfilePageState extends State<ProfilePage> {
     final user = _auth.currentUser;
     if (user != null) {
       try {
-        final storageRef = FirebaseStorage.instance
-            .ref()
-            .child('profile_pictures/${user.uid}.jpg');
+        final storageRef = _storage.ref().child(
+            'profile_pictures/${user.uid}/${user.uid}.jpg'); // User-specific folder
         final imageUrl = await storageRef.getDownloadURL();
-        WidgetsBinding.instance.addPostFrameCallback((_) {
-          setState(() {
-            _profileImage = NetworkImage(imageUrl);
-          });
+        setState(() {
+          _profileImage = NetworkImage(imageUrl);
         });
       } catch (e) {
         if (e is FirebaseException && e.code == 'object-not-found') {
@@ -95,61 +97,58 @@ class _ProfilePageState extends State<ProfilePage> {
     }
 
     final file = File(pickedFile.path);
-    print("Picked file path: ${file.path}");
+
+    setState(() {
+      _uploading = true; // Set uploading to true
+    });
 
     try {
-      final storageRef = FirebaseStorage.instance
-          .ref()
-          .child('profile_pictures/${user.uid}.jpg');
-      print("Uploading file to: ${storageRef.fullPath}");
-
+      final storageRef = _storage.ref().child(
+          'profile_pictures/${user.uid}/${user.uid}.jpg'); // User-specific folder
       final uploadTask = storageRef.putFile(file);
-
-      // Handling upload task errors
-      uploadTask.catchError((error) {
-        print("Upload task error: $error");
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Failed to upload profile picture')),
-        );
-        return null; // Ensure Future completes correctly
-      });
 
       await uploadTask.whenComplete(() async {
         print("Upload completed for: ${storageRef.fullPath}");
-
-        // Immediately reload the profile image after upload
         await _loadProfileImage(); // Refresh profile image after upload
 
+        setState(() {
+          _uploading = false; // Set uploading to false after success
+        });
+
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Profile picture updated!')),
+          const SnackBar(content: Text('Profile picture updated!')),
         );
       });
     } catch (e) {
       print("Failed to upload image: $e");
+
+      setState(() {
+        _uploading = false; // Set uploading to false even on error
+      });
+
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Failed to upload profile picture')),
+        const SnackBar(content: Text('Failed to upload profile picture')),
       );
     }
   }
 
-  // Change image dialog
   void _showProfilePictureDialog() {
     showDialog(
       context: context,
       builder: (BuildContext context) {
         return AlertDialog(
-          title: Text("Change picture?"),
-          content: Text(
+          title: const Text("Change picture?"),
+          content: const Text(
               "Do you want to change your profile picture or leave it as is?"),
           actions: [
             TextButton(
-              child: Text("Leave it"),
+              child: const Text("Leave it"),
               onPressed: () {
                 Navigator.of(context).pop();
               },
             ),
             TextButton(
-              child: Text("Change it"),
+              child: const Text("Change it"),
               onPressed: () {
                 Navigator.of(context).pop();
                 _pickImage();

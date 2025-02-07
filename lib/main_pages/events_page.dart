@@ -35,14 +35,17 @@ class _EventsPageState extends State<EventsPage> {
           GeoPoint location = data['location'] as GeoPoint;
 
           return {
-            'name': data['name'],
-            'description': data['description'],
-            'image': data['image'] ?? '',
+            'eventId':
+                doc.id, // Add this - using the document ID as the eventId
+            'name': data['name'] ?? 'Unnamed Event', // Add null check
+            'description': data['description'] ??
+                'No description available', // Add null check
+            'image': data['image'], // This can be null as it's optional
             'startTime': (data['startTime'] as Timestamp).toDate(),
             'endTime': (data['endTime'] as Timestamp).toDate(),
             'createdDate': (data['createdDate'] as Timestamp).toDate(),
-            'rewardPoints': data['rewardPoints'],
-            'status': data['status'],
+            'rewardPoints': data['rewardPoints'] ?? 0, // Add null check
+            'status': data['status'] ?? 'pending', // Add null check
             'latitude': location.latitude,
             'longitude': location.longitude,
           };
@@ -247,6 +250,7 @@ class _EventsPageState extends State<EventsPage> {
                 return EventCard(
                   name: event['name'],
                   description: event['description'],
+                  eventId: event['eventId'],
                   image: event['image'],
                   startTime: event['startTime'],
                   endTime: event['endTime'],

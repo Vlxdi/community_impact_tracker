@@ -119,8 +119,7 @@ class _AdminPanelState extends State<AdminPanel> {
     DateTime? pickedDate = await showDatePicker(
       context: context,
       initialDate: endDate ?? DateTime.now(),
-      firstDate:
-          startDate!, // Start date must be at least the selected start date
+      firstDate: startDate!,
       lastDate: DateTime(2100),
     );
 
@@ -174,9 +173,9 @@ class _AdminPanelState extends State<AdminPanel> {
     try {
       final XFile? pickedFile = await _imagePicker.pickImage(
         source: ImageSource.gallery,
-        maxWidth: 1024, // Limit image size
+        maxWidth: 1024,
         maxHeight: 1024,
-        imageQuality: 85, // Compress image
+        imageQuality: 85,
       );
 
       if (pickedFile != null) {
@@ -231,7 +230,7 @@ class _AdminPanelState extends State<AdminPanel> {
     _getCurrentLocation();
   }
 
-  Future<void> _createOrUpdateEvent() async {
+  Future<void> _updateEvent() async {
     if (nameController.text.isEmpty ||
         descriptionController.text.isEmpty ||
         startDate == null ||
@@ -239,10 +238,13 @@ class _AdminPanelState extends State<AdminPanel> {
         endDate == null ||
         endTime == null ||
         rewardPointsController.text.isEmpty ||
-        selectedLocation == null) {
+        selectedLocation == null ||
+        selectedLocation!.latitude == 0.0 ||
+        selectedLocation!.longitude == 0.0) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-            content: Text("Please fill all fields and select a location!")),
+            content:
+                Text("Please fill all fields and select a valid location!")),
       );
       return;
     }
@@ -250,7 +252,6 @@ class _AdminPanelState extends State<AdminPanel> {
     try {
       String? imageUrl;
 
-      // Handle image upload for new image
       if (_pickedImage != null) {
         imageUrl = await _uploadImageToStorage();
       }
@@ -272,6 +273,7 @@ class _AdminPanelState extends State<AdminPanel> {
       );
 
       final Map<String, dynamic> eventData = {
+        'eventId': _editingEventId,
         'name': nameController.text,
         'description': descriptionController.text,
         'startTime': Timestamp.fromDate(finalStartTime),
@@ -283,43 +285,104 @@ class _AdminPanelState extends State<AdminPanel> {
         ),
       };
 
-      if (_isEditing && _editingEventId != null) {
-        // Handle image update in edit mode
-        if (_isRemovingImage) {
-          // Delete old image if it exists and user wants to remove it
-          if (_currentImageUrl != null) {
-            await _deleteImageFromStorage(_currentImageUrl!);
-          }
-          eventData['image'] = FieldValue.delete();
-        } else if (imageUrl != null) {
-          // If new image is selected, delete old one and update with new URL
-          if (_currentImageUrl != null) {
-            await _deleteImageFromStorage(_currentImageUrl!);
-          }
-          eventData['image'] = imageUrl;
+      if (_isRemovingImage) {
+        if (_currentImageUrl != null) {
+          await _deleteImageFromStorage(_currentImageUrl!);
         }
-        // If no image changes, don't update the image field
-
-        await _firestore
-            .collection('events')
-            .doc(_editingEventId)
-            .update(eventData);
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text("Event Updated Successfully!")),
-        );
-      } else {
-        // Create new event
-        if (imageUrl != null) {
-          eventData['image'] = imageUrl;
+        eventData['image'] = FieldValue.delete();
+      } else if (imageUrl != null) {
+        if (_currentImageUrl != null) {
+          await _deleteImageFromStorage(_currentImageUrl!);
         }
-        eventData['createdDate'] = Timestamp.now();
-        eventData['status'] = 'Upcoming';
-
-        await _firestore.collection('events').add(eventData);
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text("Event Created Successfully!")),
-        );
+        eventData['image'] = imageUrl;
       }
+
+      await _firestore
+          .collection('events')
+          .doc(_editingEventId)
+          .update(eventData);
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text("Event Updated Successfully!")),
+      );
+
+      _clearForm();
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text("Error: $e")),
+      );
+    }
+  }
+
+  Future<void> _createEvent() async {
+    if (nameController.text.isEmpty ||
+        descriptionController.text.isEmpty ||
+        startDate == null ||
+        startTime == null ||
+        endDate == null ||
+        endTime == null ||
+        rewardPointsController.text.isEmpty ||
+        selectedLocation == null ||
+        selectedLocation!.latitude == 0.0 ||
+        selectedLocation!.longitude == 0.0) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+            content:
+                Text("Please fill all fields and select a valid location!")),
+      );
+      return;
+    }
+
+    try {
+      String? imageUrl;
+
+      if (_pickedImage != null) {
+        imageUrl = await _uploadImageToStorage();
+      }
+
+      final DateTime finalStartTime = DateTime(
+        startDate!.year,
+        startDate!.month,
+        startDate!.day,
+        startTime!.hour,
+        startTime!.minute,
+      );
+
+      final DateTime finalEndTime = DateTime(
+        endDate!.year,
+        endDate!.month,
+        endDate!.day,
+        endTime!.hour,
+        endTime!.minute,
+      );
+
+      final DocumentReference eventRef = _firestore.collection('events').doc();
+      final String eventId = eventRef.id;
+
+      final Map<String, dynamic> eventData = {
+        'eventId': eventId,
+        'name': nameController.text,
+        'description': descriptionController.text,
+        'startTime': Timestamp.fromDate(finalStartTime),
+        'endTime': Timestamp.fromDate(finalEndTime),
+        'rewardPoints': int.parse(rewardPointsController.text),
+        'location': GeoPoint(
+          selectedLocation!.latitude,
+          selectedLocation!.longitude,
+        ),
+        'createdDate': Timestamp.now(),
+        'status': 'soon',
+      };
+
+      if (imageUrl != null) {
+        eventData['image'] = imageUrl;
+      }
+
+      await eventRef.set(eventData);
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text("Event Created Successfully!")),
+      );
 
       _clearForm();
     } catch (e) {
@@ -333,17 +396,14 @@ class _AdminPanelState extends State<AdminPanel> {
     bool confirmDelete = await _showDeleteConfirmationDialog();
     if (confirmDelete) {
       try {
-        // Get the event data first
         final DocumentSnapshot event =
             await _firestore.collection('events').doc(id).get();
         final data = event.data() as Map<String, dynamic>?;
 
-        // Delete the image from storage if it exists
         if (data != null && data['image'] != null) {
           await _deleteImageFromStorage(data['image']);
         }
 
-        // Delete the event document
         await _firestore.collection('events').doc(id).delete();
 
         ScaffoldMessenger.of(context).showSnackBar(
@@ -405,11 +465,10 @@ class _AdminPanelState extends State<AdminPanel> {
     if (_hasUnsavedChanges()) {
       bool proceed = await _showUnsavedChangesDialog();
       if (!proceed) {
-        return; // Do nothing if the user cancels
+        return;
       }
     }
 
-    // Set form data for editing
     setState(() {
       nameController.text = eventData['name'];
       descriptionController.text = eventData['description'];
@@ -432,7 +491,6 @@ class _AdminPanelState extends State<AdminPanel> {
       _pickedImage = null;
       _isRemovingImage = false;
 
-      // Set the initial state
       _setInitialFormState();
     });
   }
@@ -482,7 +540,7 @@ class _AdminPanelState extends State<AdminPanel> {
             ],
           ),
         ) ??
-        false; // Default to false if the dialog is dismissed
+        false;
   }
 
   Future<void> _getCurrentLocation() async {
@@ -493,7 +551,6 @@ class _AdminPanelState extends State<AdminPanel> {
       }
 
       if (permission == LocationPermission.denied) {
-        // If permission is still denied after requesting, use a default location
         setState(() {
           selectedLocation = LatLng(0, 0);
           _updateMarker();
@@ -502,7 +559,6 @@ class _AdminPanelState extends State<AdminPanel> {
       }
 
       if (permission == LocationPermission.deniedForever) {
-        // Handle permanently denied permissions
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text(
@@ -530,7 +586,6 @@ class _AdminPanelState extends State<AdminPanel> {
       }
     } catch (e) {
       print('Error getting location: $e');
-      // Use a default location if unable to get current location
       setState(() {
         selectedLocation = LatLng(0, 0);
         _updateMarker();
@@ -558,7 +613,7 @@ class _AdminPanelState extends State<AdminPanel> {
 
   Widget _buildMapSelector() {
     return Container(
-      width: MediaQuery.of(context).size.width - 32, // Full width minus padding
+      width: MediaQuery.of(context).size.width - 32,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -614,6 +669,12 @@ class _AdminPanelState extends State<AdminPanel> {
     return Scaffold(
       appBar: AppBar(
         title: Text("Admin Panel"),
+        actions: [
+          IconButton(
+            icon: Icon(Icons.logout),
+            onPressed: () => _logout(context),
+          ),
+        ],
       ),
       body: Padding(
         padding: const EdgeInsets.all(16.0),
@@ -625,12 +686,13 @@ class _AdminPanelState extends State<AdminPanel> {
                   TextField(
                     controller: nameController,
                     decoration: InputDecoration(labelText: "Event Name"),
+                    maxLength: 40,
                   ),
                   TextField(
                     controller: descriptionController,
                     decoration: InputDecoration(labelText: "Description"),
-                    maxLines: 2,
-                    maxLength: 100,
+                    maxLines: 5,
+                    maxLength: 1000,
                   ),
                   TextField(
                     controller: rewardPointsController,
@@ -638,7 +700,6 @@ class _AdminPanelState extends State<AdminPanel> {
                     keyboardType: TextInputType.number,
                     inputFormatters: [FilteringTextInputFormatter.digitsOnly],
                   ),
-
                   Vspace(10),
                   Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
@@ -689,7 +750,6 @@ class _AdminPanelState extends State<AdminPanel> {
                     padding: const EdgeInsets.symmetric(vertical: 10),
                     child: _buildMapSelector(),
                   ),
-
                   Vspace(15),
                   Text("Event Image",
                       style: TextStyle(fontWeight: FontWeight.bold)),
@@ -717,7 +777,6 @@ class _AdminPanelState extends State<AdminPanel> {
                     ],
                   ),
                   Vspace(10),
-                  // Image preview section
                   Container(
                     height: 200,
                     width: double.infinity,
@@ -754,7 +813,7 @@ class _AdminPanelState extends State<AdminPanel> {
                     spacing: 5,
                     children: [
                       ElevatedButton(
-                        onPressed: _createOrUpdateEvent,
+                        onPressed: _isEditing ? _updateEvent : _createEvent,
                         child:
                             Text(_isEditing ? "Save Changes" : "Create Event"),
                       ),
@@ -774,8 +833,6 @@ class _AdminPanelState extends State<AdminPanel> {
                   SizedBox(
                     height: 16,
                   ),
-
-                  //Existing events list section
                   Text(
                     'Existing Events',
                     style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
@@ -831,17 +888,6 @@ class _AdminPanelState extends State<AdminPanel> {
                     },
                   ),
                 ],
-              ),
-            ),
-            //Logout
-            Padding(
-              padding: const EdgeInsets.only(bottom: 16.0, top: 16.0),
-              child: ElevatedButton(
-                onPressed: () => _logout(context),
-                style: ElevatedButton.styleFrom(
-                  minimumSize: Size(double.infinity, 50),
-                ),
-                child: Text('Logout'),
               ),
             ),
           ],

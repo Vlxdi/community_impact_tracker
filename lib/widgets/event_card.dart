@@ -1,4 +1,5 @@
 import 'dart:ui';
+import 'package:community_impact_tracker/services/firebase_service.dart';
 import 'package:community_impact_tracker/utils/AddSpace.dart';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
@@ -7,6 +8,7 @@ import 'package:google_maps_flutter/google_maps_flutter.dart';
 class EventCard extends StatefulWidget {
   final String name;
   final String description;
+  final String eventId;
   final String? image;
   final DateTime startTime;
   final DateTime endTime;
@@ -21,6 +23,7 @@ class EventCard extends StatefulWidget {
     super.key,
     required this.name,
     required this.description,
+    required this.eventId,
     this.image,
     required this.startTime,
     required this.endTime,
@@ -130,14 +133,22 @@ class _EventCardState extends State<EventCard> {
                   child: Container(
                     padding: EdgeInsets.all(8),
                     decoration: BoxDecoration(
-                      color: Colors.grey[300],
+                      color: widget.status == 'soon'
+                          ? Colors.grey[300]
+                          : widget.status == 'awaiting'
+                              ? Colors.blue
+                              : Colors.grey[300],
                       borderRadius: BorderRadius.only(
                         topRight: Radius.circular(12),
                         bottomLeft: Radius.circular(12),
                       ),
                     ),
                     child: Text(
-                      "Unactive",
+                      widget.status == 'soon'
+                          ? "Soon"
+                          : widget.status == 'awaiting'
+                              ? "Awaiting"
+                              : "Unactive",
                       style: TextStyle(
                         color: Colors.black,
                         fontWeight: FontWeight.bold,
@@ -146,6 +157,7 @@ class _EventCardState extends State<EventCard> {
                     ),
                   ),
                 ),
+
                 // Event details below the status container
                 Padding(
                   padding: EdgeInsets.only(top: 40),
@@ -159,16 +171,20 @@ class _EventCardState extends State<EventCard> {
                       Vspace(8),
                       ElevatedButton(
                         onPressed: () {
-                          // Call the dialog method here
-                          _showEventSignUpDialog(context);
-                        }, // Replacing action with "Sign Up"
+                          if (widget.status == 'awaiting') {
+                            // Show event info dialog instead
+                            _showEventSignUpDialog(context);
+                          } else {
+                            // Call the sign-up dialog
+                            _showEventSignUpDialog(context);
+                          }
+                        },
                         style: ElevatedButton.styleFrom(
-                            backgroundColor: Colors.blue,
-                            padding: EdgeInsets.symmetric(
-                              horizontal: 15,
-                            )),
+                          backgroundColor: Colors.blue,
+                          padding: EdgeInsets.symmetric(horizontal: 15),
+                        ),
                         child: Text(
-                          "Sign Up",
+                          widget.status == 'awaiting' ? "Details" : "Sign Up",
                           style: TextStyle(fontSize: 14, color: Colors.white),
                         ),
                       ),
@@ -189,6 +205,18 @@ class _EventCardState extends State<EventCard> {
 
   // Sign in information dialog
   void _showEventSignUpDialog(BuildContext context) {
+    final FirebaseService _firebaseService = FirebaseService();
+
+    // Get the current user's ID
+    String? userId = _firebaseService.getCurrentUserId();
+    if (userId == null) {
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+        content: Text("You must be signed in to join an event."),
+        backgroundColor: Colors.red,
+      ));
+      return;
+    }
+
     showDialog(
       context: context,
       builder: (context) {
@@ -205,6 +233,7 @@ class _EventCardState extends State<EventCard> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
+                  // Event Image
                   if (widget.image != null && widget.image!.isNotEmpty)
                     Container(
                       height: 200,
@@ -248,37 +277,54 @@ class _EventCardState extends State<EventCard> {
                   ),
                   Vspace(16),
 
-                  // Event Date & Location
                   Text(
                     'Created on: ${formatDate(widget.createdDate)}',
                     style: TextStyle(fontSize: 14, color: Colors.grey),
                   ),
                   Vspace(4),
                   Text(
-                    'Location: Community Hall, Downtown',
+                    'Location: Coming soon...',
                     style: TextStyle(fontSize: 16),
                   ),
                   Vspace(20),
 
                   // Sign-Up Button
                   Center(
-                    child: ElevatedButton(
-                      onPressed: () {
-                        // Add sign-up logic here
-                        // Retrieves data from user's account resistration
-                        Navigator.of(context).pop(); // Close dialog on click
-                      },
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: Colors.blue,
-                        padding:
-                            EdgeInsets.symmetric(horizontal: 15, vertical: 10),
-                      ),
-                      child: Text(
-                        "Sign Up",
-                        style: TextStyle(fontSize: 16, color: Colors.white),
-                      ),
-                    ),
-                  ),
+                    child: widget.status != 'awaiting'
+                        ? ElevatedButton(
+                            onPressed: () async {
+                              try {
+                                await _firebaseService
+                                    .signUpForEvent(widget.eventId);
+                                Navigator.of(context)
+                                    .pop(); // Close dialog on success
+                                ScaffoldMessenger.of(context)
+                                    .showSnackBar(SnackBar(
+                                  content: Text("Signed up successfully!"),
+                                  backgroundColor: Colors.green,
+                                ));
+                              } catch (e) {
+                                ScaffoldMessenger.of(context)
+                                    .showSnackBar(SnackBar(
+                                  content: Text("Error: ${e.toString()}"),
+                                  backgroundColor: Colors.red,
+                                ));
+                              }
+                            },
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: Colors.blue,
+                              padding: EdgeInsets.symmetric(
+                                  horizontal: 15, vertical: 10),
+                            ),
+                            child: Text(
+                              "Sign Up",
+                              style:
+                                  TextStyle(fontSize: 16, color: Colors.white),
+                            ),
+                          )
+                        : SizedBox
+                            .shrink(), // Hides the button when status is "Awaiting"
+                  )
                 ],
               ),
             ),
