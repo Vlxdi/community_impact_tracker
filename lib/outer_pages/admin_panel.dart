@@ -1,13 +1,14 @@
-import 'dart:io';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:community_impact_tracker/utils/AddSpace.dart';
-import 'package:firebase_auth/firebase_auth.dart';
-import 'package:firebase_storage/firebase_storage.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:geolocator/geolocator.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:image_picker/image_picker.dart';
+
+import 'ap_utils/auth_utils.dart';
+import 'ap_utils/date_picker_utils.dart';
+import 'ap_utils/image_picker_utils.dart';
+import 'ap_utils/location_utils.dart';
 
 class AdminPanel extends StatefulWidget {
   @override
@@ -23,7 +24,6 @@ class _AdminPanelState extends State<AdminPanel> {
 
   XFile? _pickedImage;
   String? _currentImageUrl;
-  final ImagePicker _imagePicker = ImagePicker();
   bool _isRemovingImage = false;
 
   DateTime? startDate;
@@ -35,199 +35,151 @@ class _AdminPanelState extends State<AdminPanel> {
   LatLng? selectedLocation;
   Set<Marker> markers = {};
 
-  final FirebaseAuth _auth = FirebaseAuth.instance;
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
 
   bool _isEditing = false;
   String? _editingEventId;
   Map<String, dynamic> _initialFormState = {};
 
-  void _logout(BuildContext context) async {
-    bool confirmLogout = await _showLogoutConfirmationDialog();
-    if (confirmLogout) {
-      try {
-        await _auth.signOut();
-        Navigator.pushReplacementNamed(context, '/login');
-      } catch (e) {
-        print("Logout failed: $e");
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Logout failed. Please try again.')),
-        );
-      }
-    }
-  }
-
-  Future<bool> _showLogoutConfirmationDialog() async {
-    return await showDialog<bool>(
-          context: context,
-          builder: (context) => AlertDialog(
-            title: Text('Confirm Logout'),
-            content: Text(
-                'Are you sure you want to log out from Administrator Account?\n(You will not be able to access Admin Panel as a regular user)'),
-            actions: [
-              TextButton(
-                onPressed: () => Navigator.of(context).pop(false),
-                child: Text('Cancel'),
-              ),
-              TextButton(
-                onPressed: () => Navigator.of(context).pop(true),
-                child: Text('Logout'),
-              ),
-            ],
-          ),
-        ) ??
-        false;
-  }
-
+// Date & Time picker
   Future<void> _pickStartDateTime() async {
-    DateTime? pickedDate = await showDatePicker(
-      context: context,
-      initialDate: startDate ?? DateTime.now(),
-      firstDate: DateTime(2020),
-      lastDate: DateTime(2100),
+    final DateTime? selectedDateTime = await DatePickerUtils.pickStartDateTime(
+      context,
+      startDate,
+      startTime,
     );
 
-    if (pickedDate != null) {
-      TimeOfDay? pickedTime = await showTimePicker(
-        context: context,
-        initialTime: startTime ?? TimeOfDay.now(),
-      );
-
-      if (pickedTime != null) {
-        setState(() {
-          startDate = DateTime(
-            pickedDate.year,
-            pickedDate.month,
-            pickedDate.day,
-            pickedTime.hour,
-            pickedTime.minute,
-          );
-          startTime = pickedTime;
-        });
-      }
+    if (selectedDateTime != null) {
+      setState(() {
+        startDate = selectedDateTime;
+        startTime = DatePickerUtils.getTimeOfDayFromDateTime(selectedDateTime);
+      });
     }
   }
 
   Future<void> _pickEndDateTime() async {
-    if (startDate == null || startTime == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text("Please select the start date and time first.")),
-      );
-      return;
-    }
-
-    DateTime? pickedDate = await showDatePicker(
-      context: context,
-      initialDate: endDate ?? startDate!.add(Duration(days: 1)),
-      firstDate: startDate!,
-      lastDate: DateTime(2100),
+    final DateTime? selectedDateTime = await DatePickerUtils.pickEndDateTime(
+      context,
+      startDate,
+      startTime,
+      endDate,
+      endTime,
     );
 
-    if (pickedDate != null) {
-      TimeOfDay? pickedTime = await showTimePicker(
-        context: context,
-        initialTime: endTime ?? TimeOfDay.now(),
-      );
-
-      if (pickedTime != null) {
-        DateTime selectedEndDateTime = DateTime(
-          pickedDate.year,
-          pickedDate.month,
-          pickedDate.day,
-          pickedTime.hour,
-          pickedTime.minute,
-        );
-
-        DateTime selectedStartDateTime = DateTime(
-          startDate!.year,
-          startDate!.month,
-          startDate!.day,
-          startTime!.hour,
-          startTime!.minute,
-        );
-
-        if (selectedEndDateTime.isBefore(selectedStartDateTime)) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text("End time cannot be before the start time."),
-            ),
-          );
-        } else if (selectedEndDateTime
-            .isAtSameMomentAs(selectedStartDateTime)) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text("End time cannot be the same as the start time."),
-            ),
-          );
-        } else {
-          setState(() {
-            endDate = pickedDate;
-            endTime = pickedTime;
-          });
-        }
-      }
+    if (selectedDateTime != null) {
+      setState(() {
+        endDate = selectedDateTime;
+        endTime = DatePickerUtils.getTimeOfDayFromDateTime(selectedDateTime);
+      });
     }
   }
 
+// Image picker
   Future<void> _pickImage() async {
-    try {
-      final XFile? pickedFile = await _imagePicker.pickImage(
-        source: ImageSource.gallery,
-        maxWidth: 1024,
-        maxHeight: 1024,
-        imageQuality: 85,
-      );
-
-      if (pickedFile != null) {
-        setState(() {
-          _pickedImage = pickedFile;
-          _isRemovingImage = false;
-        });
-      }
-    } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Error picking image: $e')),
-      );
+    final XFile? pickedFile = await ImageUtils.pickImage(context);
+    if (pickedFile != null) {
+      setState(() {
+        _pickedImage = pickedFile;
+        _isRemovingImage = false;
+      });
     }
   }
 
   Future<String?> _uploadImageToStorage() async {
     if (_pickedImage == null) return null;
-
-    try {
-      final String fileName =
-          'event_${DateTime.now().millisecondsSinceEpoch}.jpg';
-      final Reference storageRef =
-          FirebaseStorage.instance.ref().child('event_images').child(fileName);
-
-      final UploadTask uploadTask =
-          storageRef.putFile(File(_pickedImage!.path));
-      final TaskSnapshot snapshot = await uploadTask;
-      final String downloadUrl = await snapshot.ref.getDownloadURL();
-
-      return downloadUrl;
-    } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Error uploading image: $e')),
-      );
-      return null;
-    }
+    return await ImageUtils.uploadImageToStorage(
+      context,
+      _pickedImage!,
+      'event_images',
+    );
   }
 
   Future<void> _deleteImageFromStorage(String imageUrl) async {
-    try {
-      final Reference storageRef =
-          FirebaseStorage.instance.refFromURL(imageUrl);
-      await storageRef.delete();
-    } catch (e) {
-      print('Error deleting image from storage: $e');
-    }
+    await ImageUtils.deleteImageFromStorage(imageUrl);
   }
 
   @override
   void initState() {
     super.initState();
     _getCurrentLocation();
+  }
+
+  Future<void> _createEvent() async {
+    if (nameController.text.isEmpty ||
+        descriptionController.text.isEmpty ||
+        startDate == null ||
+        startTime == null ||
+        endDate == null ||
+        endTime == null ||
+        rewardPointsController.text.isEmpty ||
+        selectedLocation == null ||
+        selectedLocation!.latitude == 0.0 ||
+        selectedLocation!.longitude == 0.0) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+            content:
+                Text("Please fill all fields and select a valid location!")),
+      );
+      return;
+    }
+
+    try {
+      String? imageUrl;
+
+      if (_pickedImage != null) {
+        imageUrl = await _uploadImageToStorage();
+      }
+
+      final DateTime finalStartTime = DateTime(
+        startDate!.year,
+        startDate!.month,
+        startDate!.day,
+        startTime!.hour,
+        startTime!.minute,
+      );
+
+      final DateTime finalEndTime = DateTime(
+        endDate!.year,
+        endDate!.month,
+        endDate!.day,
+        endTime!.hour,
+        endTime!.minute,
+      );
+
+      final DocumentReference eventRef = _firestore.collection('events').doc();
+      final String eventId = eventRef.id;
+
+      final Map<String, dynamic> eventData = {
+        'eventId': eventId,
+        'name': nameController.text,
+        'description': descriptionController.text,
+        'startTime': Timestamp.fromDate(finalStartTime),
+        'endTime': Timestamp.fromDate(finalEndTime),
+        'rewardPoints': int.parse(rewardPointsController.text),
+        'location': GeoPoint(
+          selectedLocation!.latitude,
+          selectedLocation!.longitude,
+        ),
+        'createdDate': Timestamp.now(),
+        'status': 'soon',
+      };
+
+      if (imageUrl != null) {
+        eventData['image'] = imageUrl;
+      }
+
+      await eventRef.set(eventData);
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text("Event Created Successfully!")),
+      );
+
+      _clearForm();
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text("Error: $e")),
+      );
+    }
   }
 
   Future<void> _updateEvent() async {
@@ -304,84 +256,6 @@ class _AdminPanelState extends State<AdminPanel> {
 
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text("Event Updated Successfully!")),
-      );
-
-      _clearForm();
-    } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text("Error: $e")),
-      );
-    }
-  }
-
-  Future<void> _createEvent() async {
-    if (nameController.text.isEmpty ||
-        descriptionController.text.isEmpty ||
-        startDate == null ||
-        startTime == null ||
-        endDate == null ||
-        endTime == null ||
-        rewardPointsController.text.isEmpty ||
-        selectedLocation == null ||
-        selectedLocation!.latitude == 0.0 ||
-        selectedLocation!.longitude == 0.0) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-            content:
-                Text("Please fill all fields and select a valid location!")),
-      );
-      return;
-    }
-
-    try {
-      String? imageUrl;
-
-      if (_pickedImage != null) {
-        imageUrl = await _uploadImageToStorage();
-      }
-
-      final DateTime finalStartTime = DateTime(
-        startDate!.year,
-        startDate!.month,
-        startDate!.day,
-        startTime!.hour,
-        startTime!.minute,
-      );
-
-      final DateTime finalEndTime = DateTime(
-        endDate!.year,
-        endDate!.month,
-        endDate!.day,
-        endTime!.hour,
-        endTime!.minute,
-      );
-
-      final DocumentReference eventRef = _firestore.collection('events').doc();
-      final String eventId = eventRef.id;
-
-      final Map<String, dynamic> eventData = {
-        'eventId': eventId,
-        'name': nameController.text,
-        'description': descriptionController.text,
-        'startTime': Timestamp.fromDate(finalStartTime),
-        'endTime': Timestamp.fromDate(finalEndTime),
-        'rewardPoints': int.parse(rewardPointsController.text),
-        'location': GeoPoint(
-          selectedLocation!.latitude,
-          selectedLocation!.longitude,
-        ),
-        'createdDate': Timestamp.now(),
-        'status': 'soon',
-      };
-
-      if (imageUrl != null) {
-        eventData['image'] = imageUrl;
-      }
-
-      await eventRef.set(eventData);
-
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text("Event Created Successfully!")),
       );
 
       _clearForm();
@@ -543,124 +417,44 @@ class _AdminPanelState extends State<AdminPanel> {
         false;
   }
 
+// Location setter
   Future<void> _getCurrentLocation() async {
-    try {
-      LocationPermission permission = await Geolocator.checkPermission();
-      if (permission == LocationPermission.denied) {
-        permission = await Geolocator.requestPermission();
-      }
-
-      if (permission == LocationPermission.denied) {
-        setState(() {
-          selectedLocation = LatLng(0, 0);
-          _updateMarker();
-        });
-        return;
-      }
-
-      if (permission == LocationPermission.deniedForever) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(
-                'Location permissions are permanently denied. Please enable them in settings.'),
-            duration: Duration(seconds: 3),
-          ),
-        );
-        setState(() {
-          selectedLocation = LatLng(0, 0);
-          _updateMarker();
-        });
-        return;
-      }
-
-      if (permission == LocationPermission.whileInUse ||
-          permission == LocationPermission.always) {
-        Position position = await Geolocator.getCurrentPosition(
-          desiredAccuracy: LocationAccuracy.high,
-          timeLimit: Duration(seconds: 5),
-        );
-        setState(() {
-          selectedLocation = LatLng(position.latitude, position.longitude);
-          _updateMarker();
-        });
-      }
-    } catch (e) {
-      print('Error getting location: $e');
-      setState(() {
-        selectedLocation = LatLng(0, 0);
-        _updateMarker();
-      });
-    }
+    final location = await LocationUtils.getCurrentLocation(context);
+    setState(() {
+      selectedLocation = location;
+      _updateMarker();
+    });
   }
 
   void _updateMarker() {
     if (selectedLocation != null) {
-      markers.clear();
-      markers.add(
-        Marker(
-          markerId: MarkerId('selected_location'),
-          position: selectedLocation!,
-          draggable: true,
-          onDragEnd: (newPosition) {
+      setState(() {
+        markers = LocationUtils.createMarker(
+          selectedLocation!,
+          (newPosition) {
             setState(() {
               selectedLocation = newPosition;
             });
           },
-        ),
-      );
+        );
+      });
     }
   }
 
   Widget _buildMapSelector() {
-    return Container(
-      width: MediaQuery.of(context).size.width - 32,
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text("Event Location", style: TextStyle(fontWeight: FontWeight.bold)),
-          SizedBox(height: 10),
-          Container(
-            height: 300,
-            width: double.infinity,
-            decoration: BoxDecoration(
-              border: Border.all(color: Colors.grey),
-              borderRadius: BorderRadius.circular(8),
-            ),
-            child: ClipRRect(
-              borderRadius: BorderRadius.circular(8),
-              child: selectedLocation == null
-                  ? Center(child: CircularProgressIndicator())
-                  : GoogleMap(
-                      onMapCreated: (GoogleMapController controller) {
-                        mapController = controller;
-                      },
-                      initialCameraPosition: CameraPosition(
-                        target: selectedLocation ?? LatLng(0, 0),
-                        zoom: 15,
-                      ),
-                      markers: markers,
-                      myLocationEnabled: true,
-                      myLocationButtonEnabled: true,
-                      zoomControlsEnabled: true,
-                      onTap: (LatLng position) {
-                        setState(() {
-                          selectedLocation = position;
-                          _updateMarker();
-                        });
-                      },
-                    ),
-            ),
-          ),
-          if (selectedLocation != null)
-            Padding(
-              padding: const EdgeInsets.only(top: 8.0),
-              child: Text(
-                'Selected: ${selectedLocation!.latitude.toStringAsFixed(6)}, ${selectedLocation!.longitude.toStringAsFixed(6)}',
-                style: TextStyle(fontSize: 12, color: Colors.grey[600]),
-              ),
-            ),
-        ],
-      ),
+    return LocationUtils.buildMapSelector(
+      context: context,
+      selectedLocation: selectedLocation,
+      markers: markers,
+      onMapCreated: (GoogleMapController controller) {
+        mapController = controller;
+      },
+      onLocationSelected: (LatLng position) {
+        setState(() {
+          selectedLocation = position;
+          _updateMarker();
+        });
+      },
     );
   }
 
@@ -672,7 +466,7 @@ class _AdminPanelState extends State<AdminPanel> {
         actions: [
           IconButton(
             icon: Icon(Icons.logout),
-            onPressed: () => _logout(context),
+            onPressed: () => AuthUtils.logout(context),
           ),
         ],
       ),
@@ -751,62 +545,17 @@ class _AdminPanelState extends State<AdminPanel> {
                     child: _buildMapSelector(),
                   ),
                   Vspace(15),
-                  Text("Event Image",
-                      style: TextStyle(fontWeight: FontWeight.bold)),
-                  SizedBox(height: 10),
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      ElevatedButton(
-                        onPressed: _pickImage,
-                        child: Text('Select'),
-                      ),
-                      if (_pickedImage != null || _currentImageUrl != null)
-                        ElevatedButton(
-                          onPressed: () {
-                            setState(() {
-                              _pickedImage = null;
-                              _isRemovingImage = true;
-                            });
-                          },
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: Colors.red,
-                          ),
-                          child: Text('Remove'),
-                        ),
-                    ],
-                  ),
-                  Vspace(10),
-                  Container(
-                    height: 200,
-                    width: double.infinity,
-                    decoration: BoxDecoration(
-                      border: Border.all(color: Colors.grey),
-                      borderRadius: BorderRadius.circular(8),
-                    ),
-                    child: !_isRemovingImage
-                        ? (_pickedImage != null
-                            ? ClipRRect(
-                                borderRadius: BorderRadius.circular(8),
-                                child: Image.file(
-                                  File(_pickedImage!.path),
-                                  fit: BoxFit.cover,
-                                ),
-                              )
-                            : _currentImageUrl != null
-                                ? ClipRRect(
-                                    borderRadius: BorderRadius.circular(8),
-                                    child: Image.network(
-                                      _currentImageUrl!,
-                                      fit: BoxFit.cover,
-                                    ),
-                                  )
-                                : Center(
-                                    child: Text('No image selected'),
-                                  ))
-                        : Center(
-                            child: Text('No image selected'),
-                          ),
+                  ImageUtils.buildImagePreview(
+                    pickedImage: _pickedImage,
+                    currentImageUrl: _currentImageUrl,
+                    isRemovingImage: _isRemovingImage,
+                    onPickImage: _pickImage,
+                    onRemoveImage: () {
+                      setState(() {
+                        _pickedImage = null;
+                        _isRemovingImage = true;
+                      });
+                    },
                   ),
                   Vspace(15),
                   Column(
