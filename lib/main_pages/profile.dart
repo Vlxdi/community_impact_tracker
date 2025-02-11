@@ -88,7 +88,17 @@ class _ProfilePageState extends State<ProfilePage> {
 
   Future<void> _pickImage() async {
     final user = _auth.currentUser;
-    if (user == null) return;
+    if (user == null) {
+      print("User is NULL! Not logged in."); // Important check
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+            content:
+                Text('You must be logged in to upload a profile picture.')),
+      );
+      return;
+    }
+
+    print("Current User UID: ${user.uid}"); // Print the UID
 
     final pickedFile = await _picker.pickImage(source: ImageSource.gallery);
     if (pickedFile == null) {
@@ -103,21 +113,33 @@ class _ProfilePageState extends State<ProfilePage> {
     });
 
     try {
-      final storageRef = _storage.ref().child(
-          'profile_pictures/${user.uid}/${user.uid}.jpg'); // User-specific folder
+      final storageRef =
+          _storage.ref().child('profile_pictures/${user.uid}/${user.uid}.jpg');
+      print("Uploading to path: ${storageRef.fullPath}"); // Print the full path
+
       final uploadTask = storageRef.putFile(file);
 
-      await uploadTask.whenComplete(() async {
-        print("Upload completed for: ${storageRef.fullPath}");
-        await _loadProfileImage(); // Refresh profile image after upload
+      // Add a listener to the upload task for progress updates (optional):
+      uploadTask.snapshotEvents.listen((TaskSnapshot snapshot) {
+        if (snapshot.state == TaskState.running) {
+          double progress = snapshot.bytesTransferred / snapshot.totalBytes;
+          print("Upload Progress: ${progress * 100}%");
+          // You can use this progress to update a progress bar in your UI
+        }
+      });
 
-        setState(() {
-          _uploading = false; // Set uploading to false after success
+      await uploadTask.whenComplete(() async {
+        final imageUrl = await storageRef.getDownloadURL();
+
+        await FirebaseFirestore.instance
+            .collection('users')
+            .doc(user.uid)
+            .update({
+          'profile_picture': imageUrl,
         });
 
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Profile picture updated!')),
-        );
+        print("Profile picture URL stored in Firestore: $imageUrl");
+        await _loadProfileImage();
       });
     } catch (e) {
       print("Failed to upload image: $e");
@@ -127,7 +149,9 @@ class _ProfilePageState extends State<ProfilePage> {
       });
 
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Failed to upload profile picture')),
+        SnackBar(
+            content: Text(
+                'Failed to upload profile picture: $e')), // Show the actual error
       );
     }
   }

@@ -42,10 +42,14 @@ class EventCard extends StatefulWidget {
 class _EventCardState extends State<EventCard> {
   GoogleMapController? mapController;
   late final Set<Marker> markers;
+  final FirebaseService _firebaseService = FirebaseService();
+  late String status;
 
   @override
   void initState() {
     super.initState();
+    status = widget.status;
+
     // Initialize markers with event location
     markers = {
       Marker(
@@ -55,6 +59,32 @@ class _EventCardState extends State<EventCard> {
       ),
     };
   }
+
+  void updateStatus(String newStatus) {
+    setState(() {
+      status = newStatus; // Update the status in real-time
+    });
+  }
+
+  // Color getStatusColor(String status) {
+  //   switch (status) {
+  //     case 'soon':
+  //       return Colors.grey;
+  //     case 'awaiting':
+  //       return Colors.blue;
+  //     case 'Active':
+  //       return Colors.green;
+  //     case 'ended':
+  //       return Colors.orange;
+  //     case 'overdue':
+  //       return Colors.red;
+  //     case 'absent':
+  //     case 'participated':
+  //       return Colors.grey[800]!;
+  //     default:
+  //       return Colors.black;
+  //   }
+  // }
 
   @override
   Widget build(BuildContext context) {
@@ -133,22 +163,27 @@ class _EventCardState extends State<EventCard> {
                   child: Container(
                     padding: EdgeInsets.all(8),
                     decoration: BoxDecoration(
-                      color: widget.status == 'soon'
+                      color: status == 'soon'
                           ? Colors.grey[300]
-                          : widget.status == 'awaiting'
+                          : status == 'awaiting'
                               ? Colors.blue
-                              : Colors.grey[300],
+                              : status == 'active'
+                                  ? Colors.green
+                                  : status == 'ended'
+                                      ? Colors.orange
+                                      : status == 'overdue'
+                                          ? Colors.red
+                                          : status == 'absent' ||
+                                                  status == 'participated'
+                                              ? Colors.grey[800]
+                                              : Colors.transparent,
                       borderRadius: BorderRadius.only(
                         topRight: Radius.circular(12),
                         bottomLeft: Radius.circular(12),
                       ),
                     ),
                     child: Text(
-                      widget.status == 'soon'
-                          ? "Soon"
-                          : widget.status == 'awaiting'
-                              ? "Awaiting"
-                              : "Unactive",
+                      status,
                       style: TextStyle(
                         color: Colors.black,
                         fontWeight: FontWeight.bold,
@@ -171,11 +206,13 @@ class _EventCardState extends State<EventCard> {
                       Vspace(8),
                       ElevatedButton(
                         onPressed: () {
-                          if (widget.status == 'awaiting') {
-                            // Show event info dialog instead
-                            _showEventSignUpDialog(context);
+                          // Check if the status is 'ended' or 'overdue' to show the check-in dialog
+                          if (widget.status == 'ended' ||
+                              widget.status == 'overdue') {
+                            _showEventCheckInDialog(context,
+                                widget.eventId); // Open the check-in dialog
                           } else {
-                            // Call the sign-up dialog
+                            // Otherwise, show the sign-up dialog
                             _showEventSignUpDialog(context);
                           }
                         },
@@ -184,7 +221,15 @@ class _EventCardState extends State<EventCard> {
                           padding: EdgeInsets.symmetric(horizontal: 15),
                         ),
                         child: Text(
-                          widget.status == 'awaiting' ? "Details" : "Sign Up",
+                          // Change the button text based on the status
+                          widget.status == 'ended' || widget.status == 'overdue'
+                              ? "Check In" // If status is 'ended' or 'overdue', show "Check In"
+                              : widget.status == 'awaiting' ||
+                                      widget.status == 'active' ||
+                                      widget.status == 'participated' ||
+                                      widget.status == 'absent'
+                                  ? "Details" // Show "Details" for other statuses
+                                  : "Sign Up", // Otherwise, show "Sign Up"
                           style: TextStyle(fontSize: 14, color: Colors.white),
                         ),
                       ),
@@ -290,7 +335,10 @@ class _EventCardState extends State<EventCard> {
 
                   // Sign-Up Button
                   Center(
-                    child: widget.status != 'awaiting'
+                    child: widget.status != 'awaiting' ||
+                            widget.status != 'active' ||
+                            widget.status != 'absent' ||
+                            widget.status != 'participated'
                         ? ElevatedButton(
                             onPressed: () async {
                               try {
@@ -329,6 +377,34 @@ class _EventCardState extends State<EventCard> {
               ),
             ),
           ),
+        );
+      },
+    );
+  }
+
+  void _showEventCheckInDialog(BuildContext context, String eventId) {
+    showDialog(
+      context: context,
+      builder: (BuildContext context) {
+        return AlertDialog(
+          title: Text('Are you ready to check in?'),
+          actions: <Widget>[
+            TextButton(
+              onPressed: () async {
+                try {
+                  await _firebaseService.checkInForEvent(eventId);
+                  Navigator.of(context)
+                      .pop(); // Close the dialog after successful check-in
+                } catch (e) {
+                  // Handle error (you can show a message to the user here)
+                  print('Error: $e');
+                  Navigator.of(context)
+                      .pop(); // Close the dialog even if there's an error
+                }
+              },
+              child: Text('Check In'),
+            ),
+          ],
         );
       },
     );

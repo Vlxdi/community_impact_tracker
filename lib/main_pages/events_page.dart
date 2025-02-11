@@ -1,7 +1,9 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:community_impact_tracker/services/firebase_service.dart';
 import 'package:community_impact_tracker/utils/AddSpace.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter/rendering.dart';
+import 'dart:async';
+import 'package:community_impact_tracker/services/firebase_service.dart';
 import 'package:intl/intl.dart';
 import '../widgets/event_card.dart';
 
@@ -14,14 +16,30 @@ class EventsPage extends StatefulWidget {
 
 class _EventsPageState extends State<EventsPage> {
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
+  final FirebaseService _firebaseService = FirebaseService();
   List<Map<String, dynamic>> events = [];
   String selectedFilter = 'Filter 1';
   bool isLoading = true;
+  Timer? _timer;
 
   @override
   void initState() {
     super.initState();
     fetchEventsFromFirebase();
+
+    // Check event statuses every 10 seconds
+    _timer = Timer.periodic(Duration(seconds: 10), (Timer t) {
+      _firebaseService
+          .updateEventStatuses(); // This checks and updates event statuses
+      _firebaseService
+          .startAbsentStatusListener(); // This checks if any events need to be marked as "absent"
+    });
+  }
+
+  @override
+  void dispose() {
+    _timer?.cancel(); // Stop the timer when page is disposed
+    super.dispose();
   }
 
   void fetchEventsFromFirebase() async {
@@ -61,20 +79,15 @@ class _EventsPageState extends State<EventsPage> {
   }
 
   void handleSignIn(int index) async {
-    print("Event ID: ${events[index]['docId']}");
-    print("Event Status: ${events[index]['status']}");
+    String eventId = events[index]['eventId'];
 
     try {
+      await _firebaseService.signUpForEvent(eventId);
       setState(() {
         events[index]['status'] = 'Awaiting';
       });
-      final docId = events[index]['docId'];
-      await _firestore
-          .collection('events')
-          .doc(docId)
-          .update({'status': 'Awaiting'});
     } catch (e) {
-      print('Error updating status: $e');
+      print('Error signing up: $e');
     }
   }
 

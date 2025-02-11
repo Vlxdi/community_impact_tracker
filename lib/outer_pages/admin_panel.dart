@@ -1,5 +1,6 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:community_impact_tracker/utils/AddSpace.dart';
+import 'package:community_impact_tracker/utils/No_leading_zero.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
@@ -111,14 +112,10 @@ class _AdminPanelState extends State<AdminPanel> {
         startTime == null ||
         endDate == null ||
         endTime == null ||
-        rewardPointsController.text.isEmpty ||
-        selectedLocation == null ||
-        selectedLocation!.latitude == 0.0 ||
-        selectedLocation!.longitude == 0.0) {
+        rewardPointsController.text.isEmpty) {
+      // Removed location requirement
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-            content:
-                Text("Please fill all fields and select a valid location!")),
+        SnackBar(content: Text("Please fill all required fields!")),
       );
       return;
     }
@@ -156,13 +153,17 @@ class _AdminPanelState extends State<AdminPanel> {
         'startTime': Timestamp.fromDate(finalStartTime),
         'endTime': Timestamp.fromDate(finalEndTime),
         'rewardPoints': int.parse(rewardPointsController.text),
-        'location': GeoPoint(
-          selectedLocation!.latitude,
-          selectedLocation!.longitude,
-        ),
         'createdDate': Timestamp.now(),
         'status': 'soon',
       };
+
+      if (selectedLocation != null) {
+        // Location is now optional
+        eventData['location'] = GeoPoint(
+          selectedLocation!.latitude,
+          selectedLocation!.longitude,
+        );
+      }
 
       if (imageUrl != null) {
         eventData['image'] = imageUrl;
@@ -189,14 +190,10 @@ class _AdminPanelState extends State<AdminPanel> {
         startTime == null ||
         endDate == null ||
         endTime == null ||
-        rewardPointsController.text.isEmpty ||
-        selectedLocation == null ||
-        selectedLocation!.latitude == 0.0 ||
-        selectedLocation!.longitude == 0.0) {
+        rewardPointsController.text.isEmpty) {
+      // Removed location requirement
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-            content:
-                Text("Please fill all fields and select a valid location!")),
+        SnackBar(content: Text("Please fill all required fields!")),
       );
       return;
     }
@@ -231,11 +228,15 @@ class _AdminPanelState extends State<AdminPanel> {
         'startTime': Timestamp.fromDate(finalStartTime),
         'endTime': Timestamp.fromDate(finalEndTime),
         'rewardPoints': int.parse(rewardPointsController.text),
-        'location': GeoPoint(
+      };
+
+      if (selectedLocation != null) {
+        // Location is now optional
+        eventData['location'] = GeoPoint(
           selectedLocation!.latitude,
           selectedLocation!.longitude,
-        ),
-      };
+        );
+      }
 
       if (_isRemovingImage) {
         if (_currentImageUrl != null) {
@@ -492,7 +493,10 @@ class _AdminPanelState extends State<AdminPanel> {
                     controller: rewardPointsController,
                     decoration: InputDecoration(labelText: "Reward Points"),
                     keyboardType: TextInputType.number,
-                    inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+                    inputFormatters: [
+                      FilteringTextInputFormatter.digitsOnly,
+                      NoLeadingZeroFormatter(), // Prevents leading zero
+                    ],
                   ),
                   Vspace(10),
                   Column(
@@ -617,7 +621,15 @@ class _AdminPanelState extends State<AdminPanel> {
                                   )
                                 : Icon(Icons.image_not_supported),
                             title: Text(eventData['name']),
-                            subtitle: Text(eventData['description']),
+                            subtitle: Text(
+                              eventData['description'].length > 140
+                                  ? eventData['description'].substring(0, 140) +
+                                      '...'
+                                  : eventData['description'],
+                              maxLines:
+                                  2, // Limit the lines to control overflow
+                              overflow: TextOverflow.ellipsis,
+                            ),
                             trailing: Row(
                               mainAxisSize: MainAxisSize.min,
                               children: [
