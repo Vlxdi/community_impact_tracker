@@ -12,6 +12,8 @@ import 'ap_utils/image_picker_utils.dart';
 import 'ap_utils/location_utils.dart';
 
 class AdminPanel extends StatefulWidget {
+  const AdminPanel({super.key});
+
   @override
   _AdminPanelState createState() => _AdminPanelState();
 }

@@ -57,7 +57,7 @@ class LocationUtils {
     required Function(GoogleMapController) onMapCreated,
     required Function(LatLng) onLocationSelected,
   }) {
-    return Container(
+    return SizedBox(
       width: MediaQuery.of(context).size.width - 32,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,

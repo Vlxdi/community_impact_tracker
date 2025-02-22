@@ -1,288 +1,404 @@
 import 'dart:async';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:rxdart/rxdart.dart';
 
 class FirebaseService {
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
+  final FirebaseAuth _auth = FirebaseAuth.instance;
 
-  String? getCurrentUserId() {
-    return FirebaseAuth.instance.currentUser?.uid;
+  Timer? _eventActivationTimer;
+  Timer? _absentStatusTimer;
+  Timer? _eventStatusTimer;
+  StreamSubscription<User?>? _authStateSubscription;
+  final _disposedController = BehaviorSubject<bool>.seeded(false);
+  bool _isInitialized = false;
+
+  // Cache for event data with timestamps
+  final Map<String, _CachedEvent> _eventCache = {};
+  final Duration _cacheExpiration = Duration(minutes: 5);
+
+  static final FirebaseService _instance = FirebaseService._internal();
+
+  factory FirebaseService() {
+    return _instance;
   }
 
-  // Sign up for an event
-  Future<void> signUpForEvent(String eventId) async {
+  FirebaseService._internal() {
+    _initializeAuthListener();
+  }
+
+  void _initializeAuthListener() {
+    _authStateSubscription = _auth.authStateChanges().listen((User? user) {
+      if (user != null && !_disposedController.value) {
+        if (!_isInitialized) {
+          _isInitialized = true;
+          initializeTimers();
+        }
+      } else {
+        _stopAllTimers();
+        _isInitialized = false;
+      }
+    });
+  }
+
+  void _stopAllTimers() {
+    _eventActivationTimer?.cancel();
+    _absentStatusTimer?.cancel();
+    _eventStatusTimer?.cancel();
+    _eventCache.clear();
+  }
+
+  Future<void> dispose() async {
+    _disposedController.add(true);
+    _stopAllTimers();
+    await _authStateSubscription?.cancel();
+    await _disposedController.close();
+  }
+
+  String? getCurrentUserId() => _auth.currentUser?.uid;
+
+  void initializeTimers() {
+    if (_disposedController.value || getCurrentUserId() == null) return;
+
+    _startEventActivationTimer();
+    _startAbsentStatusTimer();
+    _startEventStatusTimer();
+  }
+
+  void _startEventActivationTimer() {
+    _eventActivationTimer?.cancel();
+    _eventActivationTimer = Timer.periodic(Duration(minutes: 1), (_) {
+      _processEventActivation();
+    });
+  }
+
+  void _startAbsentStatusTimer() {
+    _absentStatusTimer?.cancel();
+    _absentStatusTimer = Timer.periodic(Duration(seconds: 45), (_) {
+      _processAbsentStatus();
+    });
+  }
+
+  void _startEventStatusTimer() {
+    _eventStatusTimer?.cancel();
+    _eventStatusTimer = Timer.periodic(Duration(seconds: 30), (_) {
+      _processEventStatus();
+    });
+  }
+
+  Future<DocumentSnapshot?> _getCachedEvent(String eventId) async {
+    final now = DateTime.now();
+
+    if (_eventCache.containsKey(eventId)) {
+      final cachedEvent = _eventCache[eventId]!;
+      if (now.difference(cachedEvent.timestamp) < _cacheExpiration) {
+        return cachedEvent.snapshot;
+      }
+      _eventCache.remove(eventId);
+    }
+
+    try {
+      final snapshot = await _firestore.collection('events').doc(eventId).get();
+      if (snapshot.exists) {
+        _eventCache[eventId] = _CachedEvent(
+          snapshot: snapshot,
+          timestamp: now,
+        );
+      }
+      return snapshot;
+    } catch (e) {
+      print('Error fetching event: $e');
+      return null;
+    }
+  }
+
+  Stream<String> getEventStatusStream(String eventId) {
     String? userId = getCurrentUserId();
     if (userId == null) {
-      throw Exception("User not logged in");
+      return Stream.value('unknown');
     }
 
-    DocumentReference eventRef = _firestore.collection('events').doc(eventId);
-    DocumentSnapshot eventSnapshot = await eventRef.get();
+    Stream<DocumentSnapshot> eventStream =
+        _firestore.collection('events').doc(eventId).snapshots();
 
-    if (!eventSnapshot.exists) {
-      throw Exception("Event not found!");
-    }
-
-    DateTime startTime = eventSnapshot['startTime'].toDate();
-    DateTime now = DateTime.now();
-
-    if (now.isAfter(startTime)) {
-      throw Exception("Event has already started!");
-    }
-
-    await _firestore
+    Stream<DocumentSnapshot> userEventStream = _firestore
         .collection('user_events')
         .doc(userId)
         .collection('events')
         .doc(eventId)
-        .set({
-      'status': 'awaiting',
-      'signUpTime': now,
-    });
+        .snapshots();
 
-    await eventRef.update({'status': 'awaiting'});
-
-    print("User signed up for the event!");
+    return Rx.combineLatest2(
+      eventStream,
+      userEventStream,
+      (DocumentSnapshot eventSnapshot, DocumentSnapshot userEventSnapshot) {
+        if (!eventSnapshot.exists) return 'unknown';
+        if (userEventSnapshot.exists) {
+          return (userEventSnapshot.data() as Map<String, dynamic>)['status']
+                  as String? ??
+              'unknown';
+        }
+        return (eventSnapshot.data() as Map<String, dynamic>)['status']
+                as String? ??
+            'unknown';
+      },
+    ).onErrorReturn('unknown');
   }
 
-  // Activate Event when startTime is reached
-  Future<void> activateEvent(String eventId) async {
-    DocumentReference eventRef = _firestore.collection('events').doc(eventId);
-    DocumentSnapshot eventSnapshot = await eventRef.get();
+  Future<void> signUpForEvent(String eventId) async {
+    String? userId = getCurrentUserId();
+    if (userId == null) throw Exception("User not logged in");
 
-    if (!eventSnapshot.exists) {
+    DocumentSnapshot? eventSnapshot = await _getCachedEvent(eventId);
+    if (eventSnapshot == null || !eventSnapshot.exists) {
       throw Exception("Event not found!");
     }
 
     DateTime startTime = eventSnapshot['startTime'].toDate();
-    DateTime now = DateTime.now();
-
-    if (now.isAfter(startTime)) {
-      // Only activate if event is in 'soon' or 'awaiting' status
-      String currentStatus = eventSnapshot['status'];
-      if (currentStatus == 'soon' || currentStatus == 'awaiting') {
-        await eventRef.update({'status': 'active'});
-        print("Event $eventId is now Active!");
-      }
+    if (DateTime.now().isAfter(startTime)) {
+      throw Exception("Event has already started!");
     }
-  }
 
-  // Periodically check and update event status
-  void startEventActivationListener() {
-    Timer.periodic(Duration(minutes: 1), (timer) async {
-      QuerySnapshot eventsSnapshot = await _firestore
-          .collection('events')
-          .where('status', whereIn: ['soon', 'awaiting']).get();
-
-      for (var eventDoc in eventsSnapshot.docs) {
-        await activateEvent(eventDoc.id);
-      }
-    });
-  }
-
-  // Helper function to update status in user_events collection for current user
-  Future<void> updateUserEventStatus(String eventId, String newStatus) async {
-    String? userId = getCurrentUserId();
-    if (userId == null) return;
-
-    DocumentReference userEventRef = _firestore
-        .collection('user_events')
-        .doc(userId)
-        .collection('events')
-        .doc(eventId);
-
-    // Check if user has this event
-    DocumentSnapshot eventCheck = await userEventRef.get();
-    if (eventCheck.exists) {
-      await userEventRef.update({'status': newStatus});
-      print("Updated user event status to $newStatus for event $eventId");
-    }
-  }
-
-  // Update events that are active or ended
-  Future<void> updateEventStatuses() async {
-    DateTime now = DateTime.now();
-
-    QuerySnapshot eventSnapshot = await _firestore
-        .collection('events')
-        .where('status', whereIn: ['soon', 'awaiting', 'active']).get();
-
-    for (var doc in eventSnapshot.docs) {
-      Map<String, dynamic> data = doc.data() as Map<String, dynamic>;
-      DateTime startTime = (data['startTime'] as Timestamp).toDate();
-      DateTime endTime = (data['endTime'] as Timestamp).toDate();
-      String currentStatus = data['status'];
-      String eventId = doc.id;
-
-      // If the event has started and it's not already active
-      if (now.isAfter(startTime) &&
-          now.isBefore(endTime) &&
-          (currentStatus == 'soon' || currentStatus == 'awaiting')) {
-        // Update main event status
-        await _firestore
-            .collection('events')
-            .doc(eventId)
-            .update({'status': 'active'});
-        print("Updated event $eventId to Active");
-
-        // Update user event status if they're signed up
-        await updateUserEventStatus(eventId, 'active');
-      }
-
-      // If the event has ended and it's not in a final state
-      if (now.isAfter(endTime) &&
-          !['ended', 'overdue', 'participated', 'absent']
-              .contains(currentStatus)) {
-        // Update main event status
-        await _firestore
-            .collection('events')
-            .doc(eventId)
-            .update({'status': 'ended'});
-        print("Updated event $eventId to Ended");
-
-        // Update user event status if they're signed up
-        await updateUserEventStatus(eventId, 'ended');
-      }
-    }
-  }
-
-// Periodically check for events that ended and update status accordingly
-  void startAbsentStatusListener() {
-    Timer.periodic(Duration(seconds: 30), (timer) async {
-      String? userId = getCurrentUserId();
-      if (userId == null) return;
-
-      DateTime now = DateTime.now();
-
-      // First, get the current user's signed up events that are in 'ended' status
-      QuerySnapshot userEndedEvents = await _firestore
+    try {
+      await _firestore
           .collection('user_events')
           .doc(userId)
+          .collection('events')
+          .doc(eventId)
+          .set({
+        'status': 'awaiting',
+        'signUpTime': FieldValue.serverTimestamp(),
+      });
+      print("User signed up for the event!");
+    } catch (e) {
+      print("Error signing up for event: $e");
+      rethrow;
+    }
+  }
+
+  Future<void> _processEventActivation() async {
+    if (_disposedController.value) return;
+
+    try {
+      // Fetch all events that should now be "active"
+      QuerySnapshot eventsSnapshot = await _firestore
+          .collection('events')
+          .where('status', isEqualTo: 'soon')
+          .where('startTime', isLessThan: DateTime.now())
+          .get();
+
+      if (eventsSnapshot.docs.isEmpty) return;
+
+      // Update global events to "active"
+      WriteBatch globalBatch = _firestore.batch();
+      Set<String> eventIds = {};
+
+      for (var eventDoc in eventsSnapshot.docs) {
+        globalBatch.update(eventDoc.reference, {'status': 'active'});
+        eventIds.add(eventDoc.id);
+      }
+
+      await globalBatch.commit();
+
+      if (eventIds.isEmpty) return;
+
+      // Update user events from "awaiting" to "active"
+      QuerySnapshot userEventsSnapshot = await _firestore
+          .collectionGroup('events')
+          .where('status', isEqualTo: 'awaiting')
+          .get();
+
+      WriteBatch userBatch = _firestore.batch();
+      bool hasUserUpdates = false;
+
+      for (var userEventDoc in userEventsSnapshot.docs) {
+        if (eventIds.contains(userEventDoc.id)) {
+          userBatch.update(userEventDoc.reference, {'status': 'active'});
+          hasUserUpdates = true;
+        }
+      }
+
+      if (hasUserUpdates) {
+        await userBatch.commit();
+      }
+    } catch (e) {
+      print('Error in event activation: $e');
+    }
+  }
+
+  Future<void> _processEventStatus() async {
+    if (_disposedController.value) return;
+
+    try {
+      // First, handle global events separately
+      await _updateGlobalEventsToEnded();
+
+      // Then, handle user events separately
+      await _updateUserEventsToEnded();
+    } catch (e) {
+      print('Error in _processEventStatus: $e');
+    }
+  }
+
+  Future<void> _updateGlobalEventsToEnded() async {
+    try {
+      // Get events that should be ended
+      QuerySnapshot events = await _firestore
+          .collection('events')
+          .where('status', isEqualTo: 'active')
+          .where('endTime', isLessThan: DateTime.now())
+          .limit(20)
+          .get();
+
+      if (events.docs.isEmpty) return;
+
+      // Update global events to "ended"
+      WriteBatch batch = _firestore.batch();
+      for (var eventDoc in events.docs) {
+        batch.update(eventDoc.reference, {'status': 'ended'});
+      }
+
+      await batch.commit();
+    } catch (e) {
+      print('Error updating global events to ended: $e');
+    }
+  }
+
+  Future<void> _updateUserEventsToEnded() async {
+    try {
+      QuerySnapshot endedGlobalEvents = await _firestore
           .collection('events')
           .where('status', isEqualTo: 'ended')
           .get();
 
-      // For each ended event the user is signed up for
-      for (var userEventDoc in userEndedEvents.docs) {
-        String eventId = userEventDoc.id;
+      if (endedGlobalEvents.docs.isEmpty) return;
 
-        // Get the main event document
-        DocumentSnapshot eventDoc =
-            await _firestore.collection('events').doc(eventId).get();
+      List<String> endedEventIds =
+          endedGlobalEvents.docs.map((doc) => doc.id).toList();
 
-        if (!eventDoc.exists) continue;
+      QuerySnapshot activeUserEvents = await _firestore
+          .collectionGroup('events')
+          .where('status', isEqualTo: 'active')
+          .get();
 
-        DateTime endTime = eventDoc['endTime'].toDate();
+      if (activeUserEvents.docs.isEmpty) return;
 
-        // Check if 10 minutes have passed since event ended
-        if (now.isAfter(endTime.add(Duration(minutes: 1)))) {
-          // Move to overdue since we know the user is signed up
-          // Update main event
-          await _firestore
-              .collection('events')
-              .doc(eventId)
-              .update({'status': 'overdue'});
-          print("Event $eventId moved to overdue status");
+      WriteBatch batch = _firestore.batch();
+      int batchSize = 0;
+      DateTime now = DateTime.now();
 
-          // Update user event
-          await updateUserEventStatus(eventId, 'overdue');
+      for (var userEventDoc in activeUserEvents.docs) {
+        if (endedEventIds.contains(userEventDoc.id)) {
+          batch.update(userEventDoc.reference, {
+            'status': 'overdue',
+            'overdueTime': now,
+          });
+          batchSize++;
+
+          if (batchSize >= 100) {
+            await batch.commit();
+            batch = _firestore.batch();
+            batchSize = 0;
+          }
         }
       }
 
-      // Handle overdue events for current user
-      QuerySnapshot userOverdueEvents = await _firestore
-          .collection('user_events')
-          .doc(userId)
-          .collection('events')
+      if (batchSize > 0) {
+        await batch.commit();
+      }
+    } catch (e) {
+      print('Error updating user events to overdue: $e');
+    }
+  }
+
+  Future<void> _processAbsentStatus() async {
+    if (_disposedController.value) return;
+
+    try {
+      QuerySnapshot overdueEvents = await _firestore
+          .collectionGroup('events')
           .where('status', isEqualTo: 'overdue')
           .get();
 
-      for (var userEventDoc in userOverdueEvents.docs) {
-        String eventId = userEventDoc.id;
+      if (overdueEvents.docs.isEmpty) return;
 
-        // Get the main event document
-        DocumentSnapshot eventDoc =
-            await _firestore.collection('events').doc(eventId).get();
+      WriteBatch batch = _firestore.batch();
+      int batchSize = 0;
+      DateTime now = DateTime.now();
 
-        if (!eventDoc.exists) continue;
+      for (var userEventDoc in overdueEvents.docs) {
+        DateTime overdueTime =
+            (userEventDoc['overdueTime'] as Timestamp).toDate();
 
-        DateTime endTime = eventDoc['endTime'].toDate();
+        if (now.isAfter(overdueTime.add(Duration(minutes: 1)))) {
+          batch.update(userEventDoc.reference, {'status': 'absent'});
+          batchSize++;
+        }
 
-        // Check if 25 minutes have passed since event ended (10 + 15)
-        if (now.isAfter(endTime.add(Duration(minutes: 2)))) {
-          // Move to absent since overdue period has passed
-          // Update main event
-          await _firestore
-              .collection('events')
-              .doc(eventId)
-              .update({'status': 'absent'});
-          print("Event $eventId marked as absent after overdue period");
-
-          // Update user event
-          await updateUserEventStatus(eventId, 'absent');
+        if (batchSize >= 100) {
+          await batch.commit();
+          batch = _firestore.batch();
+          batchSize = 0;
         }
       }
-    });
+
+      if (batchSize > 0) {
+        await batch.commit();
+      }
+    } catch (e) {
+      print('Error processing absent status: $e');
+    }
   }
 
-// Check-in for an event
   Future<void> checkInForEvent(String eventId) async {
     String? userId = getCurrentUserId();
-    if (userId == null) {
-      throw Exception("User not logged in");
-    }
+    if (userId == null) throw Exception("User not logged in");
 
-    DocumentReference eventRef = _firestore.collection('events').doc(eventId);
-    DocumentSnapshot eventSnapshot = await eventRef.get();
+    try {
+      DocumentSnapshot? eventSnapshot = await _getCachedEvent(eventId);
+      if (eventSnapshot == null || !eventSnapshot.exists) {
+        throw Exception("Event not found!");
+      }
 
-    if (!eventSnapshot.exists) {
-      throw Exception("Event not found!");
-    }
-
-    DateTime endTime = eventSnapshot['endTime'].toDate();
-    DateTime now = DateTime.now();
-    String currentStatus = eventSnapshot['status'];
-
-    // Check if user is registered for the event
-    DocumentSnapshot userEventDoc = await _firestore
-        .collection('user_events')
-        .doc(userId)
-        .collection('events')
-        .doc(eventId)
-        .get();
-
-    if (!userEventDoc.exists) {
-      throw Exception("User is not registered for this event");
-    }
-
-    // Allow check-in during ended or overdue status if user is registered
-    if ((currentStatus == 'ended' &&
-            now.isBefore(endTime.add(Duration(minutes: 1)))) ||
-        (currentStatus == 'overdue' &&
-            now.isBefore(endTime.add(Duration(minutes: 2))))) {
-      // Mark user as 'participated'
-      await _firestore
+      DocumentReference userEventRef = _firestore
           .collection('user_events')
           .doc(userId)
           .collection('events')
-          .doc(eventId)
-          .update({'status': 'participated'});
+          .doc(eventId);
 
-      // Update event status to 'participated'
-      await eventRef.update({'status': 'participated'});
-      print("User checked in, event marked as participated!");
-    } else {
-      // If past the grace period, mark as 'absent'
-      await _firestore
-          .collection('user_events')
-          .doc(userId)
-          .collection('events')
-          .doc(eventId)
-          .update({'status': 'absent'});
+      DocumentSnapshot userEventDoc = await userEventRef.get();
 
-      // Update event status to 'absent'
-      await eventRef.update({'status': 'absent'});
-      print("Check-in period expired, event marked as absent.");
+      if (!userEventDoc.exists) {
+        throw Exception("User is not registered for this event");
+      }
+
+      DateTime endTime = eventSnapshot['endTime'].toDate();
+      DateTime now = DateTime.now();
+      String userStatus = userEventDoc['status'];
+
+      // Only allow check-in during 'ended' status within 1 minute window
+      if (userStatus == 'ended' &&
+          now.isBefore(endTime.add(Duration(minutes: 1)))) {
+        await userEventRef.update({'status': 'participated'});
+        print("User checked in, marked as participated!");
+      } else {
+        await userEventRef.update({'status': 'absent'});
+        print("Check-in period expired, marked as absent.");
+      }
+    } catch (e) {
+      print("Error checking in for event: $e");
+      rethrow;
     }
   }
+}
+
+class _CachedEvent {
+  final DocumentSnapshot snapshot;
+  final DateTime timestamp;
+
+  _CachedEvent({
+    required this.snapshot,
+    required this.timestamp,
+  });
 }

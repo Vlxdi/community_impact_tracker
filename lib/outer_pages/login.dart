@@ -18,7 +18,7 @@ class _LoginPageState extends State<LoginPage> {
   String _username = '';
   String _email = '';
   String _password = '';
-  String _profile_picture = '';
+  final String _profile_picture = '';
   //add phone registering later
   //final String _phone = '';
   //final String _verificationId = '';

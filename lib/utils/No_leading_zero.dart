@@ -8,7 +8,7 @@ class NoLeadingZeroFormatter extends TextInputFormatter {
     TextEditingValue newValue,
   ) {
     // If the new input starts with '0' and is not empty, revert to the old value
-    if (newValue.text.startsWith('0') && newValue.text.length > 0) {
+    if (newValue.text.startsWith('0') && newValue.text.isNotEmpty) {
       return oldValue;
     }
     return newValue;

@@ -3,7 +3,6 @@ import 'package:community_impact_tracker/services/firebase_service.dart';
 import 'package:community_impact_tracker/utils/AddSpace.dart';
 import 'package:flutter/material.dart';
 import 'dart:async';
-import 'package:community_impact_tracker/services/firebase_service.dart';
 import 'package:intl/intl.dart';
 import '../widgets/event_card.dart';
 
@@ -18,27 +17,25 @@ class _EventsPageState extends State<EventsPage> {
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
   final FirebaseService _firebaseService = FirebaseService();
   List<Map<String, dynamic>> events = [];
+  Map<String, StreamSubscription<String>> statusSubscriptions = {};
   String selectedFilter = 'Filter 1';
   bool isLoading = true;
-  Timer? _timer;
 
   @override
   void initState() {
     super.initState();
     fetchEventsFromFirebase();
 
-    // Check event statuses every 10 seconds
-    _timer = Timer.periodic(Duration(seconds: 10), (Timer t) {
-      _firebaseService
-          .updateEventStatuses(); // This checks and updates event statuses
-      _firebaseService
-          .startAbsentStatusListener(); // This checks if any events need to be marked as "absent"
-    });
+    // Initialize all timers through FirebaseService
+    _firebaseService.initializeTimers();
   }
 
   @override
   void dispose() {
-    _timer?.cancel(); // Stop the timer when page is disposed
+    // Cancel all status stream subscriptions
+    for (var subscription in statusSubscriptions.values) {
+      subscription.cancel();
+    }
     super.dispose();
   }
 
@@ -47,27 +44,52 @@ class _EventsPageState extends State<EventsPage> {
       QuerySnapshot querySnapshot = await _firestore.collection('events').get();
       print("Fetched ${querySnapshot.docs.length} events");
 
-      setState(() {
-        events = querySnapshot.docs.map((doc) {
-          Map<String, dynamic> data = doc.data() as Map<String, dynamic>;
-          GeoPoint location = data['location'] as GeoPoint;
+      // First, cancel existing subscriptions
+      for (var subscription in statusSubscriptions.values) {
+        subscription.cancel();
+      }
+      statusSubscriptions.clear();
 
-          return {
-            'eventId':
-                doc.id, // Add this - using the document ID as the eventId
-            'name': data['name'] ?? 'Unnamed Event', // Add null check
-            'description': data['description'] ??
-                'No description available', // Add null check
-            'image': data['image'], // This can be null as it's optional
-            'startTime': (data['startTime'] as Timestamp).toDate(),
-            'endTime': (data['endTime'] as Timestamp).toDate(),
-            'createdDate': (data['createdDate'] as Timestamp).toDate(),
-            'rewardPoints': data['rewardPoints'] ?? 0, // Add null check
-            'status': data['status'] ?? 'pending', // Add null check
-            'latitude': location.latitude,
-            'longitude': location.longitude,
-          };
-        }).toList();
+      List<Map<String, dynamic>> fetchedEvents = [];
+
+      for (var doc in querySnapshot.docs) {
+        Map<String, dynamic> data = doc.data() as Map<String, dynamic>;
+        GeoPoint location = data['location'] as GeoPoint;
+        String eventId = doc.id;
+
+        Map<String, dynamic> eventData = {
+          'eventId': eventId,
+          'name': data['name'] ?? 'Unnamed Event',
+          'description': data['description'] ?? 'No description available',
+          'image': data['image'],
+          'startTime': (data['startTime'] as Timestamp).toDate(),
+          'endTime': (data['endTime'] as Timestamp).toDate(),
+          'createdDate': (data['createdDate'] as Timestamp).toDate(),
+          'rewardPoints': data['rewardPoints'] ?? 0,
+          'status': data['status'] ?? 'pending',
+          'latitude': location.latitude,
+          'longitude': location.longitude,
+        };
+
+        fetchedEvents.add(eventData);
+
+        // Set up status stream subscription for this event
+        statusSubscriptions[eventId] =
+            _firebaseService.getEventStatusStream(eventId).listen((status) {
+          setState(() {
+            // Find the event in our list and update its status
+            for (int i = 0; i < events.length; i++) {
+              if (events[i]['eventId'] == eventId) {
+                events[i]['status'] = status;
+                break;
+              }
+            }
+          });
+        });
+      }
+
+      setState(() {
+        events = fetchedEvents;
         isLoading = false;
       });
     } catch (e) {
@@ -83,11 +105,10 @@ class _EventsPageState extends State<EventsPage> {
 
     try {
       await _firebaseService.signUpForEvent(eventId);
-      setState(() {
-        events[index]['status'] = 'Awaiting';
-      });
+      // Don't update the status here - let the stream handle it
     } catch (e) {
       print('Error signing up: $e');
+      // Show error message to user
     }
   }
 

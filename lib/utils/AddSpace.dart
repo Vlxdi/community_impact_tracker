@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
 
 class Vspace extends SizedBox {
-  Vspace(double height) : super(height: height);
+  const Vspace(double height, {super.key}) : super(height: height);
 }
 
 class Hspace extends SizedBox {
-  Hspace(double width) : super(width: width);
+  const Hspace(double width, {super.key}) : super(width: width);
 }
