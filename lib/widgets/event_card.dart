@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:ui';
 import 'package:community_impact_tracker/services/firebase_service.dart';
 import 'package:community_impact_tracker/utils/AddSpace.dart';
@@ -43,6 +44,8 @@ class _EventCardState extends State<EventCard> {
   GoogleMapController? mapController;
   late final Set<Marker> markers;
   final FirebaseService _firebaseService = FirebaseService();
+  Timer? _timer;
+  Duration _timeRemaining = Duration.zero;
 
   @override
   void initState() {
@@ -54,6 +57,7 @@ class _EventCardState extends State<EventCard> {
         infoWindow: InfoWindow(title: widget.name),
       ),
     };
+    _startTimer();
   }
 
   Color getStatusColor(String status) {
@@ -73,6 +77,55 @@ class _EventCardState extends State<EventCard> {
         return Colors.grey[800]!;
       default:
         return Colors.transparent;
+    }
+  }
+
+  void _startTimer() {
+    if (widget.status != 'active') return;
+
+    DateTime now = DateTime.now();
+
+    // Determine whether we are counting down to start or end
+    if (now.isBefore(widget.startTime)) {
+      _timeRemaining =
+          widget.startTime.difference(now); // Countdown to start time
+    } else {
+      _timeRemaining = widget.endTime.difference(now); // Countdown to end time
+    }
+
+    if (_timeRemaining.isNegative) {
+      _timeRemaining = Duration.zero;
+      setState(() {}); // Update UI to show 0:0:0 if negative
+      return;
+    }
+
+    // Start the timer
+    _timer = Timer.periodic(Duration(seconds: 1), (timer) {
+      if (mounted) {
+        setState(() {
+          DateTime now = DateTime.now();
+
+          if (now.isBefore(widget.startTime)) {
+            _timeRemaining = widget.startTime.difference(now);
+          } else {
+            _timeRemaining = widget.endTime.difference(now);
+          }
+
+          if (_timeRemaining.isNegative) {
+            _timeRemaining = Duration.zero;
+            _timer?.cancel();
+          }
+        });
+      }
+    });
+  }
+
+  @override
+  void didUpdateWidget(covariant EventCard oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.status != widget.status && widget.status == 'active') {
+      _timer?.cancel();
+      _startTimer();
     }
   }
 
@@ -146,9 +199,9 @@ class _EventCardState extends State<EventCard> {
                         ),
                         markers: markers,
                         mapType: MapType.normal,
-                        zoomControlsEnabled: false,
+                        zoomControlsEnabled: true,
                         mapToolbarEnabled: false,
-                        myLocationButtonEnabled: false,
+                        myLocationButtonEnabled: true,
                       ),
                     ),
                   ],
@@ -192,8 +245,25 @@ class _EventCardState extends State<EventCard> {
                         crossAxisAlignment: CrossAxisAlignment.center,
                         mainAxisAlignment: MainAxisAlignment.center,
                         children: [
-                          Text("Starts: ${formatDate(widget.startTime)}"),
-                          Text("Ends: ${formatDate(widget.endTime)}"),
+                          if (widget.status == 'active' &&
+                              _timeRemaining > Duration.zero)
+                            Padding(
+                              padding: EdgeInsets.only(bottom: 8),
+                              child: Text(
+                                "Time Remaining: ${_timeRemaining.inHours}:${_timeRemaining.inMinutes.remainder(60)}:${_timeRemaining.inSeconds.remainder(60)}",
+                                style: TextStyle(
+                                    fontSize: 16,
+                                    fontWeight: FontWeight.bold,
+                                    color: Colors.red),
+                              ),
+                            )
+                          else
+                            Column(
+                              children: [
+                                Text("Starts: ${formatDate(widget.startTime)}"),
+                                Text("Ends: ${formatDate(widget.endTime)}"),
+                              ],
+                            ),
                           Text("Reward: ${widget.rewardPoints}⭐"),
                           Vspace(8),
                           ElevatedButton(
@@ -218,7 +288,7 @@ class _EventCardState extends State<EventCard> {
                           ),
                         ],
                       ),
-                    ),
+                    )
                   ],
                 ),
               ),
