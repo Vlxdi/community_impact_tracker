@@ -156,6 +156,39 @@ class _ProfilePageState extends State<ProfilePage> {
     }
   }
 
+  Widget _fetchWalletBalance() {
+    return StreamBuilder<DocumentSnapshot>(
+      stream: FirebaseFirestore.instance
+          .collection('users')
+          .doc(FirebaseAuth.instance.currentUser!.uid)
+          .snapshots(),
+      builder: (context, snapshot) {
+        if (snapshot.connectionState == ConnectionState.waiting) {
+          return const CircularProgressIndicator();
+        }
+
+        if (!snapshot.hasData ||
+            snapshot.data == null ||
+            !snapshot.data!.exists) {
+          return const Text("Wallet Balance: 0",
+              style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold));
+        }
+
+        int walletBalance = snapshot.data!.get('wallet_balance') ?? 0;
+
+        return Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            const Icon(Icons.account_balance_wallet_rounded, size: 30),
+            Text("Wallet Balance: $walletBalance",
+                style:
+                    const TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+          ],
+        );
+      },
+    );
+  }
+
   void _showProfilePictureDialog() {
     showDialog(
       context: context,
@@ -267,15 +300,7 @@ class _ProfilePageState extends State<ProfilePage> {
                       ],
                     ),
                     Vspace(5),
-                    const Row(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        Icon(Icons.account_balance_wallet_rounded, size: 30),
-                        Text("Wallet Balance: 500",
-                            style: TextStyle(
-                                fontSize: 18, fontWeight: FontWeight.bold)),
-                      ],
-                    ),
+                    _fetchWalletBalance(),
                   ],
                 ),
               ),

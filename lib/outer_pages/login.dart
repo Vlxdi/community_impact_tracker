@@ -19,6 +19,7 @@ class _LoginPageState extends State<LoginPage> {
   String _email = '';
   String _password = '';
   final String _profile_picture = '';
+  int _wallet_balance = 0;
   //add phone registering later
   //final String _phone = '';
   //final String _verificationId = '';
@@ -36,6 +37,8 @@ class _LoginPageState extends State<LoginPage> {
         await _firestore.collection('users').doc(userCredential.user?.uid).set({
           'username': _username,
           'email': _email,
+          'profile_picture': '', // Empty profile picture field
+          'wallet_balance': 0, // Initial wallet balance of 0
         });
 
         // Directly sign the user in

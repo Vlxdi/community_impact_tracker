@@ -553,6 +553,7 @@ class FirebaseService {
       // Allow check-in during 'ended' or 'overdue' status
       if (userStatus == 'ended' || userStatus == 'overdue') {
         await userEventRef.update({'status': 'participated'});
+        await addPointsToWallet(eventId);
         print("User checked in, marked as participated!");
         return;
       } else if (userStatus == 'absent') {
@@ -577,4 +578,35 @@ class _CachedEvent {
     required this.snapshot,
     required this.timestamp,
   });
+}
+
+// Reward recieving system
+
+Future<void> addPointsToWallet(String eventId) async {
+  try {
+    String userId = FirebaseAuth.instance.currentUser!.uid;
+    FirebaseFirestore firestore = FirebaseFirestore.instance;
+
+    // Fetch the event reward points
+    DocumentSnapshot eventSnapshot =
+        await firestore.collection('events').doc(eventId).get();
+    if (!eventSnapshot.exists) {
+      throw Exception("Event not found.");
+    }
+    int rewardPoints = eventSnapshot.get('rewardPoints');
+
+    // Fetch the user's current wallet balance
+    DocumentReference userRef = firestore.collection('users').doc(userId);
+    DocumentSnapshot userSnapshot = await userRef.get();
+    int currentBalance =
+        userSnapshot.exists ? userSnapshot.get('wallet_balance') ?? 0 : 0;
+
+    // Update the wallet balance
+    int newBalance = currentBalance + rewardPoints;
+    await userRef.update({'wallet_balance': newBalance});
+
+    print("✅ Points added successfully! New Balance: $newBalance");
+  } catch (e) {
+    print("❌ Error updating wallet: $e");
+  }
 }
