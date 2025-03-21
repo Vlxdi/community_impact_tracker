@@ -5,6 +5,7 @@ import 'package:firebase_auth/firebase_auth.dart' show FirebaseAuth, User;
 import 'package:flutter/material.dart';
 import 'dart:async';
 import 'package:intl/intl.dart';
+import 'package:geolocator/geolocator.dart'; // Add this import for location services
 import '../widgets/event_card.dart';
 
 class EventsPage extends StatefulWidget {
@@ -32,6 +33,7 @@ class _EventsPageState extends State<EventsPage> {
   bool isLoadingMore = false;
   DocumentSnapshot? _lastDocument;
   bool _hasMoreEvents = true;
+  Position? userLocation; // Store the user's location
 
   // Add this line to make showSignedUpSection a class-level variable
   bool showSignedUpSection = false;
@@ -40,6 +42,9 @@ class _EventsPageState extends State<EventsPage> {
   void initState() {
     super.initState();
     _firebaseService = FirebaseService();
+
+    // Fetch user's location
+    _fetchUserLocation();
 
     // Set up a single auth state listener
     _authSubscription =
@@ -61,6 +66,37 @@ class _EventsPageState extends State<EventsPage> {
 
     // Initialize timers
     _firebaseService.initializeTimers();
+  }
+
+  // Fetch the user's current location
+  Future<void> _fetchUserLocation() async {
+    try {
+      bool serviceEnabled = await Geolocator.isLocationServiceEnabled();
+      if (!serviceEnabled) {
+        print("Location services are disabled.");
+        return;
+      }
+
+      LocationPermission permission = await Geolocator.checkPermission();
+      if (permission == LocationPermission.denied) {
+        permission = await Geolocator.requestPermission();
+        if (permission == LocationPermission.denied) {
+          print("Location permissions are denied.");
+          return;
+        }
+      }
+
+      if (permission == LocationPermission.deniedForever) {
+        print("Location permissions are permanently denied.");
+        return;
+      }
+
+      userLocation = await Geolocator.getCurrentPosition();
+      print(
+          "User location fetched: ${userLocation?.latitude}, ${userLocation?.longitude}");
+    } catch (e) {
+      print("Error fetching user location: $e");
+    }
   }
 
   // Clear all events and subscriptions
@@ -296,6 +332,31 @@ class _EventsPageState extends State<EventsPage> {
       eventsList.sort((a, b) => b['createdDate'].compareTo(a['createdDate']));
     } else if (selectedSort == 'most_points') {
       eventsList.sort((a, b) => b['rewardPoints'].compareTo(a['rewardPoints']));
+    } else if (selectedSort == 'near_me' && userLocation != null) {
+      eventsList.sort((a, b) {
+        double distanceA = Geolocator.distanceBetween(
+          userLocation!.latitude,
+          userLocation!.longitude,
+          a['latitude'],
+          a['longitude'],
+        );
+        double distanceB = Geolocator.distanceBetween(
+          userLocation!.latitude,
+          userLocation!.longitude,
+          b['latitude'],
+          b['longitude'],
+        );
+        return distanceA.compareTo(distanceB);
+      });
+    } else if (selectedSort == 'starting_soon') {
+      eventsList.sort((a, b) =>
+          a['startTime'].compareTo(b['startTime'])); // Sort in ascending order
+    } else if (selectedSort == 'duration') {
+      eventsList.sort((a, b) {
+        Duration durationA = a['endTime'].difference(a['startTime']);
+        Duration durationB = b['endTime'].difference(b['startTime']);
+        return durationB.compareTo(durationA); // Sort by longest duration
+      });
     }
   }
 
@@ -598,7 +659,12 @@ class _EventsPageState extends State<EventsPage> {
                                 mainAxisSize: MainAxisSize.min,
                                 children: [
                                   ListTile(
+                                    leading: Icon(Icons
+                                        .more_time_rounded), // Icon for "Most Recent"
                                     title: Text('Most Recent'),
+                                    tileColor: selectedSort == 'most_recent'
+                                        ? Colors.blue[100]
+                                        : null,
                                     onTap: () {
                                       setState(() {
                                         selectedSort = 'most_recent';
@@ -609,10 +675,63 @@ class _EventsPageState extends State<EventsPage> {
                                     },
                                   ),
                                   ListTile(
+                                    leading: Icon(
+                                        Icons.star), // Icon for "Most Points"
                                     title: Text('Most Points'),
+                                    tileColor: selectedSort == 'most_points'
+                                        ? Colors.blue[100]
+                                        : null,
                                     onTap: () {
                                       setState(() {
                                         selectedSort = 'most_points';
+                                        _applySorting(filteredEvents);
+                                        _applySorting(signedUpEvents);
+                                      });
+                                      Navigator.pop(context);
+                                    },
+                                  ),
+                                  ListTile(
+                                    leading: Icon(Icons
+                                        .my_location_rounded), // Icon for "Near Me"
+                                    title: Text('Near Me'),
+                                    tileColor: selectedSort == 'near_me'
+                                        ? Colors.blue[100]
+                                        : null,
+                                    onTap: () {
+                                      setState(() {
+                                        selectedSort = 'near_me';
+                                        _applySorting(filteredEvents);
+                                        _applySorting(signedUpEvents);
+                                      });
+                                      Navigator.pop(context);
+                                    },
+                                  ),
+                                  ListTile(
+                                    leading: Icon(Icons
+                                        .timelapse_rounded), // Icon for "Starting Soon"
+                                    title: Text('Starting Soon'),
+                                    tileColor: selectedSort == 'starting_soon'
+                                        ? Colors.blue[100]
+                                        : null,
+                                    onTap: () {
+                                      setState(() {
+                                        selectedSort = 'starting_soon';
+                                        _applySorting(filteredEvents);
+                                        _applySorting(signedUpEvents);
+                                      });
+                                      Navigator.pop(context);
+                                    },
+                                  ),
+                                  ListTile(
+                                    leading: Icon(Icons
+                                        .hourglass_top_rounded), // Icon for "Duration"
+                                    title: Text('Duration'),
+                                    tileColor: selectedSort == 'duration'
+                                        ? Colors.blue[100]
+                                        : null,
+                                    onTap: () {
+                                      setState(() {
+                                        selectedSort = 'duration';
                                         _applySorting(filteredEvents);
                                         _applySorting(signedUpEvents);
                                       });

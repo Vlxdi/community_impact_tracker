@@ -46,7 +46,7 @@ dependencies:
   google_maps_flutter: ^2.10.0
   dio: ^5.7.0
   flutter_polyline_points: ^2.1.0
-  geolocator: ^13.0.2
+  geolocator: ^13.0.3
   rxdart: ^0.28.0
   cloud_functions: ^5.3.3
   

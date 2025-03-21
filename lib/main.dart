@@ -153,7 +153,7 @@ class _MainPageState extends State<MainPage> {
             label: 'Shop',
           ),
           BottomNavigationBarItem(
-            icon: Icon(Icons.leaderboard_rounded),
+            icon: Icon(Icons.bar_chart_rounded),
             label: 'Leaderboard',
           ),
           BottomNavigationBarItem(
