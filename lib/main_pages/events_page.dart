@@ -242,6 +242,8 @@ class _EventsPageState extends State<EventsPage> {
           'latitude': location.latitude,
           'longitude': location.longitude,
           'isSignedUp': userEventIds.contains(eventId), // Track signup status
+          'maxParticipants': data['maxParticipants'] ?? 0, // Handle null safely
+          'currentParticipants': data['currentParticipants'] ?? 0,
         };
 
         fetchedEvents.add(eventData);
@@ -354,7 +356,7 @@ class _EventsPageState extends State<EventsPage> {
     } else if (selectedSort == 'duration') {
       eventsList.sort((a, b) {
         Duration durationA = a['endTime'].difference(a['startTime']);
-        Duration durationB = b['endTime'].difference(b['startTime']);
+        Duration durationB = b['endTime'].difference(a['startTime']);
         return durationB.compareTo(durationA); // Sort by longest duration
       });
     }
@@ -369,12 +371,12 @@ class _EventsPageState extends State<EventsPage> {
         startOfWeek.add(Duration(days: 6, hours: 23, minutes: 59, seconds: 59));
     DateTime startOfNextWeek = startOfWeek.add(Duration(days: 7));
 
-    events.forEach((event) {
+    for (var event in events) {
       DateTime startTime = event['startTime'];
       if (startTime.isBefore(now) && event['status'] == 'upcoming') {
         event['status'] = 'ongoing';
       }
-    });
+    }
 
     List<Map<String, dynamic>> tempFiltered = [];
 
@@ -441,52 +443,115 @@ class _EventsPageState extends State<EventsPage> {
   }
 
   void handleSignIn(int index, bool isFromSignedUpSection) async {
-    // Determine which list to use based on the section
     List<Map<String, dynamic>> sourceList =
         isFromSignedUpSection ? signedUpEvents : filteredEvents;
+
     String eventId = sourceList[index]['eventId'];
     String userId = FirebaseAuth.instance.currentUser!.uid;
 
     try {
-      // Sign up for the event
-      await _firebaseService.signUpForEvent(eventId);
-
-      // Add the event to the user's events collection
-      await _firestore
+      final existingSignUp = await _firestore
           .collection('user_events')
           .doc(userId)
           .collection('events')
           .doc(eventId)
-          .set({
-        'signedUpAt': DateTime.now(),
+          .get();
+
+      if (existingSignUp.exists) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('You are already signed up for this event.')),
+        );
+        return;
+      }
+
+      await _firestore.runTransaction((transaction) async {
+        DocumentReference eventRef =
+            _firestore.collection('events').doc(eventId);
+        DocumentSnapshot freshEventDoc = await transaction.get(eventRef);
+
+        if (!freshEventDoc.exists) {
+          throw Exception('Event not found');
+        }
+
+        Map<String, dynamic> eventData =
+            freshEventDoc.data() as Map<String, dynamic>;
+        int freshCurrentParticipants = eventData['currentParticipants'] ?? 0;
+        int maxParticipants = eventData['maxParticipants'] ?? 0;
+
+        if (freshCurrentParticipants >= maxParticipants) {
+          throw Exception('Event is now full');
+        }
+
+        transaction.update(
+            eventRef, {'currentParticipants': freshCurrentParticipants + 1});
+
+        transaction.set(
+            _firestore
+                .collection('user_events')
+                .doc(userId)
+                .collection('events')
+                .doc(eventId),
+            {'signUpTime': FieldValue.serverTimestamp()});
       });
 
-      // Update the event's isSignedUp status locally
-      for (int i = 0; i < events.length; i++) {
-        if (events[i]['eventId'] == eventId) {
-          events[i]['isSignedUp'] = true;
-          break;
+      final updatedEventDoc =
+          await _firestore.collection('events').doc(eventId).get();
+      int updatedCurrentParticipants =
+          updatedEventDoc.data()?['currentParticipants'] ?? 0;
+
+      print(
+          'Event $eventId - Current Participants: $updatedCurrentParticipants');
+
+      setState(() {
+        for (var event in events) {
+          if (event['eventId'] == eventId) {
+            event['currentParticipants'] = updatedCurrentParticipants;
+            break;
+          }
+        }
+        _applyFilter();
+      });
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Successfully signed up for the event!')),
+      );
+    } catch (e) {
+      print('Error signing up for event: $e');
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Failed to sign up. Please try again.'),
+          backgroundColor: Colors.red,
+        ),
+      );
+    }
+  }
+
+  Future<void> debugVerifyEventSignUps(String eventId) async {
+    try {
+      final eventDoc = await _firestore.collection('events').doc(eventId).get();
+      print('Event Details:');
+      print(
+          'Current Participants: ${eventDoc.data()?['currentParticipants'] ?? 0}');
+      print('Max Participants: ${eventDoc.data()?['maxParticipants'] ?? 0}');
+
+      final userEventsSnapshot =
+          await _firestore.collection('user_events').get();
+      print('Total user event collections: ${userEventsSnapshot.docs.length}');
+
+      int signedUpCount = 0;
+      for (var userDoc in userEventsSnapshot.docs) {
+        final eventSignUpDoc =
+            await userDoc.reference.collection('events').doc(eventId).get();
+
+        if (eventSignUpDoc.exists) {
+          signedUpCount++;
+          print('User signed up: ${userDoc.id}');
         }
       }
 
-      // Update the UI in real-time
-      if (mounted) {
-        setState(() {
-          // Reapply the filter to update the sections
-          _applyFilter();
-
-          // Update showSignedUpSection immediately
-          showSignedUpSection = signedUpEvents.isNotEmpty;
-        });
-      }
+      print('Total users signed up for event $eventId: $signedUpCount');
     } catch (e) {
-      print('Error signing up: $e');
-      // Show error message to user
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-            content:
-                Text('Failed to sign up for the event. Please try again.')),
-      );
+      print('Error verifying event sign-ups: $e');
     }
   }
 
@@ -653,92 +718,95 @@ class _EventsPageState extends State<EventsPage> {
                       child: GestureDetector(
                         onTap: () {
                           showModalBottomSheet(
+                            barrierColor: Colors.black.withOpacity(0.5),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.only(
+                                topLeft: Radius.circular(20),
+                                topRight: Radius.circular(20),
+                              ),
+                            ),
                             context: context,
                             builder: (context) {
-                              return Column(
-                                mainAxisSize: MainAxisSize.min,
-                                children: [
-                                  ListTile(
-                                    leading: Icon(Icons
-                                        .more_time_rounded), // Icon for "Most Recent"
-                                    title: Text('Most Recent'),
-                                    tileColor: selectedSort == 'most_recent'
-                                        ? Colors.blue[100]
-                                        : null,
-                                    onTap: () {
-                                      setState(() {
-                                        selectedSort = 'most_recent';
-                                        _applySorting(filteredEvents);
-                                        _applySorting(signedUpEvents);
-                                      });
-                                      Navigator.pop(context);
-                                    },
+                              return Container(
+                                decoration: BoxDecoration(
+                                  color: Colors.white,
+                                  borderRadius: BorderRadius.only(
+                                    topLeft: Radius.circular(20),
+                                    topRight: Radius.circular(20),
                                   ),
-                                  ListTile(
-                                    leading: Icon(
-                                        Icons.star), // Icon for "Most Points"
-                                    title: Text('Most Points'),
-                                    tileColor: selectedSort == 'most_points'
-                                        ? Colors.blue[100]
-                                        : null,
-                                    onTap: () {
-                                      setState(() {
-                                        selectedSort = 'most_points';
-                                        _applySorting(filteredEvents);
-                                        _applySorting(signedUpEvents);
-                                      });
-                                      Navigator.pop(context);
-                                    },
-                                  ),
-                                  ListTile(
-                                    leading: Icon(Icons
-                                        .my_location_rounded), // Icon for "Near Me"
-                                    title: Text('Near Me'),
-                                    tileColor: selectedSort == 'near_me'
-                                        ? Colors.blue[100]
-                                        : null,
-                                    onTap: () {
-                                      setState(() {
-                                        selectedSort = 'near_me';
-                                        _applySorting(filteredEvents);
-                                        _applySorting(signedUpEvents);
-                                      });
-                                      Navigator.pop(context);
-                                    },
-                                  ),
-                                  ListTile(
-                                    leading: Icon(Icons
-                                        .timelapse_rounded), // Icon for "Starting Soon"
-                                    title: Text('Starting Soon'),
-                                    tileColor: selectedSort == 'starting_soon'
-                                        ? Colors.blue[100]
-                                        : null,
-                                    onTap: () {
-                                      setState(() {
-                                        selectedSort = 'starting_soon';
-                                        _applySorting(filteredEvents);
-                                        _applySorting(signedUpEvents);
-                                      });
-                                      Navigator.pop(context);
-                                    },
-                                  ),
-                                  ListTile(
-                                    leading: Icon(Icons
-                                        .hourglass_top_rounded), // Icon for "Duration"
-                                    title: Text('Duration'),
-                                    tileColor: selectedSort == 'duration'
-                                        ? Colors.blue[100]
-                                        : null,
-                                    onTap: () {
-                                      setState(() {
-                                        selectedSort = 'duration';
-                                        _applySorting(filteredEvents);
-                                        _applySorting(signedUpEvents);
-                                      });
-                                      Navigator.pop(context);
-                                    },
-                                  ),
-                                ],
+                                ),
+                                child: Column(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    _buildListTile(
+                                      icon: Icons.more_time_rounded,
+                                      title: 'Most Recent',
+                                      isSelected: selectedSort == 'most_recent',
+                                      onTap: () {
+                                        setState(() {
+                                          selectedSort = 'most_recent';
+                                          _applySorting(filteredEvents);
+                                          _applySorting(signedUpEvents);
+                                        });
+                                        Navigator.pop(context);
+                                      },
+                                      isTop: true,
+                                    ),
+                                    _buildListTile(
+                                      icon: Icons.star,
+                                      title: 'Most Points',
+                                      isSelected: selectedSort == 'most_points',
+                                      onTap: () {
+                                        setState(() {
+                                          selectedSort = 'most_points';
+                                          _applySorting(filteredEvents);
+                                          _applySorting(signedUpEvents);
+                                        });
+                                        Navigator.pop(context);
+                                      },
+                                    ),
+                                    _buildListTile(
+                                      icon: Icons.my_location_rounded,
+                                      title: 'Near Me',
+                                      isSelected: selectedSort == 'near_me',
+                                      onTap: () {
+                                        setState(() {
+                                          selectedSort = 'near_me';
+                                          _applySorting(filteredEvents);
+                                          _applySorting(signedUpEvents);
+                                        });
+                                        Navigator.pop(context);
+                                      },
+                                    ),
+                                    _buildListTile(
+                                      icon: Icons.timelapse_rounded,
+                                      title: 'Starting Soon',
+                                      isSelected:
+                                          selectedSort == 'starting_soon',
+                                      onTap: () {
+                                        setState(() {
+                                          selectedSort = 'starting_soon';
+                                          _applySorting(filteredEvents);
+                                          _applySorting(signedUpEvents);
+                                        });
+                                        Navigator.pop(context);
+                                      },
+                                    ),
+                                    _buildListTile(
+                                      icon: Icons.hourglass_top_rounded,
+                                      title: 'Duration',
+                                      isSelected: selectedSort == 'duration',
+                                      onTap: () {
+                                        setState(() {
+                                          selectedSort = 'duration';
+                                          _applySorting(filteredEvents);
+                                          _applySorting(signedUpEvents);
+                                        });
+                                        Navigator.pop(context);
+                                      },
+                                    ),
+                                  ],
+                                ),
                               );
                             },
                           );
@@ -819,6 +887,9 @@ class _EventsPageState extends State<EventsPage> {
                                   latitude: event['latitude'],
                                   longitude: event['longitude'],
                                   rewardPoints: event['rewardPoints'],
+                                  maxParticipants: event['maxParticipants'],
+                                  currentParticipants:
+                                      event['currentParticipants'],
                                   status: event['status'],
                                   onSignIn: () => handleSignIn(
                                       signedUpEvents.indexOf(event), true),
@@ -889,12 +960,16 @@ class _EventsPageState extends State<EventsPage> {
                                         latitude: event['latitude'],
                                         longitude: event['longitude'],
                                         rewardPoints: event['rewardPoints'],
+                                        maxParticipants:
+                                            event['maxParticipants'],
+                                        currentParticipants:
+                                            event['currentParticipants'],
                                         status: event['status'],
                                         onSignIn: () => handleSignIn(
                                             filteredEvents.indexOf(event),
                                             false),
                                       );
-                                    }).toList(),
+                                    }),
                                     if (isLoadingMore)
                                       Padding(
                                         padding: EdgeInsets.all(8.0),
@@ -909,6 +984,29 @@ class _EventsPageState extends State<EventsPage> {
             ),
           ],
         ),
+      ),
+    );
+  }
+
+  Widget _buildListTile({
+    required IconData icon,
+    required String title,
+    required bool isSelected,
+    required VoidCallback onTap,
+    bool isTop = false,
+  }) {
+    return Container(
+      decoration: BoxDecoration(
+        color: isSelected ? Colors.blue[100] : Colors.transparent,
+        borderRadius: BorderRadius.only(
+          topLeft: isTop ? Radius.circular(20) : Radius.zero,
+          topRight: isTop ? Radius.circular(20) : Radius.zero,
+        ),
+      ),
+      child: ListTile(
+        leading: Icon(icon),
+        title: Text(title),
+        onTap: onTap,
       ),
     );
   }

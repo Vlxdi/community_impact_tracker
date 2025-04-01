@@ -34,6 +34,8 @@ class FirebaseService {
         _isInitialized = true;
         // Initialize timers when user logs in
         initializeTimers();
+        // NEW: Process event statuses immediately after login
+        _processEventStatus();
       } else {
         _isInitialized = false;
         // Cancel timers when user logs out
@@ -278,7 +280,10 @@ class FirebaseService {
       if (currentUserId != null) {
         await _updateUserEventsToEnded(currentUserId);
 
-        // NEW: Handle events the user never signed up for
+        // NEW: Immediately mark ended events as absent if the user has not participated
+        await _markEndedEventsAsAbsent(currentUserId);
+
+        // Handle events the user never signed up for
         await _createAbsentRecordsForMissedEvents(currentUserId);
       }
     } catch (e) {
@@ -286,7 +291,43 @@ class FirebaseService {
     }
   }
 
-  // New method to create absent records for events the user didn't sign up for
+  // NEW: Method to immediately mark ended events as absent
+  Future<void> _markEndedEventsAsAbsent(String userId) async {
+    try {
+      // Get the user's events with "ended" status
+      QuerySnapshot endedUserEvents = await _firestore
+          .collection('user_events')
+          .doc(userId)
+          .collection('events')
+          .where('status', isEqualTo: 'ended')
+          .get();
+
+      if (endedUserEvents.docs.isEmpty) return;
+
+      int successCount = 0;
+
+      for (var userEventDoc in endedUserEvents.docs) {
+        try {
+          // Mark the event as "absent"
+          await userEventDoc.reference.update({
+            'status': 'absent',
+            'absentReason': 'not_participated',
+            'absentTime': FieldValue.serverTimestamp(),
+          });
+          successCount++;
+        } catch (e) {
+          print('Error marking event ${userEventDoc.id} as absent: $e');
+        }
+      }
+
+      if (successCount > 0) {
+        print('Successfully marked $successCount ended events as absent');
+      }
+    } catch (e) {
+      print('Error in _markEndedEventsAsAbsent: $e');
+    }
+  }
+
   Future<void> _createAbsentRecordsForMissedEvents(String userId) async {
     try {
       // Get all ended events from the last 24 hours (to limit the query)

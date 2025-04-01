@@ -4,6 +4,8 @@ import 'package:community_impact_tracker/utils/AddSpace.dart';
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:geolocator/geolocator.dart';
+import 'package:geocoding/geocoding.dart';
 
 class LoginPage extends StatefulWidget {
   const LoginPage({super.key});
@@ -20,12 +22,326 @@ class _LoginPageState extends State<LoginPage> {
   String _password = '';
   final String _profile_picture = '';
   int _wallet_balance = 0;
+  String _selectedCountry = '';
+  bool _isLoadingLocation = true;
   //add phone registering later
   //final String _phone = '';
   //final String _verificationId = '';
   bool _isRegistering = false;
 
+  // List of countries for dropdown
+  final List<String> _countries = [
+    'Afghanistan',
+    'Albania',
+    'Algeria',
+    'Andorra',
+    'Angola',
+    'Antigua and Barbuda',
+    'Argentina',
+    'Armenia',
+    'Australia',
+    'Austria',
+    'Azerbaijan',
+    'Bahamas',
+    'Bahrain',
+    'Bangladesh',
+    'Barbados',
+    'Belarus',
+    'Belgium',
+    'Belize',
+    'Benin',
+    'Bhutan',
+    'Bolivia',
+    'Bosnia and Herzegovina',
+    'Botswana',
+    'Brazil',
+    'Brunei',
+    'Bulgaria',
+    'Burkina Faso',
+    'Burundi',
+    'Cabo Verde',
+    'Cambodia',
+    'Cameroon',
+    'Canada',
+    'Central African Republic',
+    'Chad',
+    'Chile',
+    'China',
+    'Colombia',
+    'Comoros',
+    'Congo',
+    'Costa Rica',
+    'Croatia',
+    'Cuba',
+    'Cyprus',
+    'Czech Republic',
+    'Democratic Republic of the Congo',
+    'Denmark',
+    'Djibouti',
+    'Dominica',
+    'Dominican Republic',
+    'Ecuador',
+    'Egypt',
+    'El Salvador',
+    'Equatorial Guinea',
+    'Eritrea',
+    'Estonia',
+    'Eswatini',
+    'Ethiopia',
+    'Fiji',
+    'Finland',
+    'France',
+    'Gabon',
+    'Gambia',
+    'Georgia',
+    'Germany',
+    'Ghana',
+    'Greece',
+    'Grenada',
+    'Guatemala',
+    'Guinea',
+    'Guinea-Bissau',
+    'Guyana',
+    'Haiti',
+    'Honduras',
+    'Hungary',
+    'Iceland',
+    'India',
+    'Indonesia',
+    'Iran',
+    'Iraq',
+    'Ireland',
+    'Israel',
+    'Italy',
+    'Jamaica',
+    'Japan',
+    'Jordan',
+    'Kazakhstan',
+    'Kenya',
+    'Kiribati',
+    'Kuwait',
+    'Kyrgyzstan',
+    'Laos',
+    'Latvia',
+    'Lebanon',
+    'Lesotho',
+    'Liberia',
+    'Libya',
+    'Liechtenstein',
+    'Lithuania',
+    'Luxembourg',
+    'Madagascar',
+    'Malawi',
+    'Malaysia',
+    'Maldives',
+    'Mali',
+    'Malta',
+    'Marshall Islands',
+    'Mauritania',
+    'Mauritius',
+    'Mexico',
+    'Micronesia',
+    'Moldova',
+    'Monaco',
+    'Mongolia',
+    'Montenegro',
+    'Morocco',
+    'Mozambique',
+    'Myanmar',
+    'Namibia',
+    'Nauru',
+    'Nepal',
+    'Netherlands',
+    'New Zealand',
+    'Nicaragua',
+    'Niger',
+    'Nigeria',
+    'North Korea',
+    'North Macedonia',
+    'Norway',
+    'Oman',
+    'Pakistan',
+    'Palau',
+    'Palestine',
+    'Panama',
+    'Papua New Guinea',
+    'Paraguay',
+    'Peru',
+    'Philippines',
+    'Poland',
+    'Portugal',
+    'Qatar',
+    'Romania',
+    'Russia',
+    'Rwanda',
+    'Saint Kitts and Nevis',
+    'Saint Lucia',
+    'Saint Vincent and the Grenadines',
+    'Samoa',
+    'San Marino',
+    'Sao Tome and Principe',
+    'Saudi Arabia',
+    'Senegal',
+    'Serbia',
+    'Seychelles',
+    'Sierra Leone',
+    'Singapore',
+    'Slovakia',
+    'Slovenia',
+    'Solomon Islands',
+    'Somalia',
+    'South Africa',
+    'South Korea',
+    'South Sudan',
+    'Spain',
+    'Sri Lanka',
+    'Sudan',
+    'Suriname',
+    'Sweden',
+    'Switzerland',
+    'Syria',
+    'Taiwan',
+    'Tajikistan',
+    'Tanzania',
+    'Thailand',
+    'Timor-Leste',
+    'Togo',
+    'Tonga',
+    'Trinidad and Tobago',
+    'Tunisia',
+    'Turkey',
+    'Turkmenistan',
+    'Tuvalu',
+    'Uganda',
+    'Ukraine',
+    'United Arab Emirates',
+    'United Kingdom',
+    'United States',
+    'Uruguay',
+    'Uzbekistan',
+    'Vanuatu',
+    'Vatican City',
+    'Venezuela',
+    'Vietnam',
+    'Yemen',
+    'Zambia',
+    'Zimbabwe'
+  ];
+
+  @override
+  void initState() {
+    super.initState();
+    _getUserLocation();
+  }
+
+  Future<void> _getUserLocation() async {
+    setState(() {
+      _isLoadingLocation = true;
+    });
+
+    try {
+      // Check location permission
+      LocationPermission permission = await Geolocator.checkPermission();
+      if (permission == LocationPermission.denied) {
+        permission = await Geolocator.requestPermission();
+        if (permission == LocationPermission.denied) {
+          // Handle denied permission
+          setState(() {
+            _selectedCountry = 'United States'; // Default country
+            _isLoadingLocation = false;
+          });
+          return;
+        }
+      }
+
+      if (permission == LocationPermission.deniedForever) {
+        // Handle permanently denied permission
+        setState(() {
+          _selectedCountry = 'United States'; // Default country
+          _isLoadingLocation = false;
+        });
+        return;
+      }
+
+      // Get current position
+      Position position = await Geolocator.getCurrentPosition(
+          desiredAccuracy: LocationAccuracy.medium);
+
+      // Reverse geocoding to get country
+      List<Placemark> placemarks =
+          await placemarkFromCoordinates(position.latitude, position.longitude);
+
+      if (placemarks.isNotEmpty) {
+        Placemark place = placemarks.first;
+        String countryName = place.country ?? 'United States';
+
+        // Check if country exists in our list
+        if (_countries.contains(countryName)) {
+          setState(() {
+            _selectedCountry = countryName;
+          });
+        } else {
+          setState(() {
+            _selectedCountry =
+                'United States'; // Default if country not in list
+          });
+        }
+      } else {
+        setState(() {
+          _selectedCountry = 'United States'; // Default if geocoding fails
+        });
+      }
+    } catch (e) {
+      print('Error getting location: $e');
+      setState(() {
+        _selectedCountry = 'United States'; // Default on error
+      });
+    } finally {
+      setState(() {
+        _isLoadingLocation = false;
+      });
+    }
+  }
+
+  bool _isValidUsername(String username) {
+    return username.length >= 4 && username.length <= 20;
+  }
+
+  bool _isValidEmail(String email) {
+    final emailRegex = RegExp(r'^[^@]+@[^@]+\.[^@]+$');
+    return emailRegex.hasMatch(email);
+  }
+
+  bool _isValidPassword(String password) {
+    final passwordRegex = RegExp(
+        r'^(?=.*[A-Z])(?=.*[a-z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]{8,16}$');
+    return passwordRegex.hasMatch(password);
+  }
+
   void _register() async {
+    if (!_isValidUsername(_username)) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Username must be 4-20 characters long.')),
+      );
+      return;
+    }
+
+    if (!_isValidEmail(_email)) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Please enter a valid email address.')),
+      );
+      return;
+    }
+
+    if (!_isValidPassword(_password)) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+            content: Text(
+                'Password must be 8-16 characters long, include an uppercase letter, a lowercase letter, a number, and a special character.')),
+      );
+      return;
+    }
+
     try {
       UserCredential userCredential =
           await _auth.createUserWithEmailAndPassword(
@@ -39,14 +355,10 @@ class _LoginPageState extends State<LoginPage> {
           'email': _email,
           'profile_picture': '', // Empty profile picture field
           'wallet_balance': 0, // Initial wallet balance of 0
+          'location': _selectedCountry, // Save the selected country
         });
 
-        // Directly sign the user in
-        await _auth.signInWithEmailAndPassword(
-          email: _email,
-          password: _password,
-        );
-
+        // Automatically navigate the user to the app
         Navigator.pushReplacement(
           context,
           MaterialPageRoute(builder: (context) => MainPage(initialIndex: 3)),
@@ -122,43 +434,6 @@ class _LoginPageState extends State<LoginPage> {
     }
   }
 
-  // Uncomment and adjust this function if using phone authentication in the future
-  // void _loginWithPhone() async {
-  //   try {
-  //     await _auth.verifyPhoneNumber(
-  //       phoneNumber: _phone,
-  //       verificationCompleted: (PhoneAuthCredential credential) async {
-  //         await _auth.signInWithCredential(credential);
-  //         if (mounted) {
-  //           Navigator.pushReplacement(
-  //             context,
-  //             MaterialPageRoute(builder: (context) => MainPage(initialIndex: 3)),
-  //           );
-  //         }
-  //       },
-  //       verificationFailed: (FirebaseAuthException e) {
-  //         print(e);
-  //         if (mounted) {
-  //           ScaffoldMessenger.of(context).showSnackBar(
-  //               SnackBar(content: Text('Phone verification failed')));
-  //         }
-  //       },
-  //       codeSent: (String verificationId, int? resendToken) {
-  //         setState(() {
-  //           _verificationId = verificationId;
-  //         });
-  //         ScaffoldMessenger.of(context)
-  //             .showSnackBar(SnackBar(content: Text('Code sent')));
-  //       },
-  //       codeAutoRetrievalTimeout: (String verificationId) {},
-  //     );
-  //   } catch (e) {
-  //     print(e);
-  //     ScaffoldMessenger.of(context)
-  //         .showSnackBar(SnackBar(content: Text('Phone login failed')));
-  //   }
-  // }
-
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -202,7 +477,7 @@ class _LoginPageState extends State<LoginPage> {
                 ),
                 child: Column(
                   children: [
-                    // New username field
+                    // Registration fields
                     if (_isRegistering)
                       Column(
                         children: [
@@ -217,6 +492,43 @@ class _LoginPageState extends State<LoginPage> {
                               });
                             },
                           ),
+                          Divider(),
+                          // Country dropdown
+                          _isLoadingLocation
+                              ? Padding(
+                                  padding: EdgeInsets.symmetric(vertical: 10),
+                                  child: Center(
+                                    child: SizedBox(
+                                      height: 20,
+                                      width: 20,
+                                      child: CircularProgressIndicator(
+                                        strokeWidth: 2,
+                                      ),
+                                    ),
+                                  ),
+                                )
+                              : DropdownButtonHideUnderline(
+                                  child: DropdownButton<String>(
+                                    isExpanded: true,
+                                    hint: Text('Select Country'),
+                                    value: _selectedCountry.isEmpty
+                                        ? null
+                                        : _selectedCountry,
+                                    onChanged: (String? newValue) {
+                                      setState(() {
+                                        _selectedCountry = newValue!;
+                                      });
+                                    },
+                                    items: _countries
+                                        .map<DropdownMenuItem<String>>(
+                                            (String value) {
+                                      return DropdownMenuItem<String>(
+                                        value: value,
+                                        child: Text(value),
+                                      );
+                                    }).toList(),
+                                  ),
+                                ),
                           Divider(),
                         ],
                       ),

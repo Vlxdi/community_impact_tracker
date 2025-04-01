@@ -1,4 +1,5 @@
 import 'dart:io';
+import 'package:community_impact_tracker/outer_pages/my_events_archive.dart';
 import 'package:community_impact_tracker/utils/AddSpace.dart';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
@@ -302,6 +303,22 @@ class _ProfilePageState extends State<ProfilePage> {
                     Vspace(5),
                     _fetchWalletBalance(),
                   ],
+                ),
+              ),
+              Vspace(30),
+              Center(
+                child: ElevatedButton.icon(
+                  onPressed: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (context) => MyEventsArchive(
+                            userId: FirebaseAuth.instance.currentUser!.uid),
+                      ),
+                    );
+                  },
+                  icon: Icon(Icons.event_note),
+                  label: Text("My Events Archive"),
                 ),
               ),
               Vspace(30),

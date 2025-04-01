@@ -24,6 +24,12 @@ class _AdminPanelState extends State<AdminPanel> {
   final TextEditingController rewardPointsController = TextEditingController();
   final TextEditingController latitudeController = TextEditingController();
   final TextEditingController longitudeController = TextEditingController();
+  final TextEditingController maxParticipantsController =
+      TextEditingController();
+  int maxParticipants = 50; // Default value
+  final TextEditingController currentParticipantsController =
+      TextEditingController();
+  int currentParticipants = 0; // Default value
 
   XFile? _pickedImage;
   String? _currentImageUrl;
@@ -43,6 +49,69 @@ class _AdminPanelState extends State<AdminPanel> {
   bool _isEditing = false;
   String? _editingEventId;
   Map<String, dynamic> _initialFormState = {};
+
+  final Set<String> _selectedEventIds =
+      {}; // Store selected event IDs for batch delete
+  bool _isBatchDeleteMode = false; // Track if batch delete mode is active
+
+  void _toggleEventSelection(String eventId) {
+    setState(() {
+      if (_selectedEventIds.contains(eventId)) {
+        _selectedEventIds.remove(eventId);
+      } else {
+        _selectedEventIds.add(eventId);
+      }
+    });
+  }
+
+  void _toggleBatchDeleteMode() {
+    setState(() {
+      _isBatchDeleteMode = !_isBatchDeleteMode;
+      if (!_isBatchDeleteMode) {
+        _selectedEventIds
+            .clear(); // Clear selections when exiting batch delete mode
+      }
+    });
+  }
+
+  Future<void> _batchDeleteEvents() async {
+    if (_selectedEventIds.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text("No events selected for deletion!")),
+      );
+      return;
+    }
+
+    bool confirmDelete = await _showDeleteConfirmationDialog();
+    if (confirmDelete) {
+      try {
+        for (String eventId in _selectedEventIds) {
+          final DocumentSnapshot event =
+              await _firestore.collection('events').doc(eventId).get();
+          final data = event.data() as Map<String, dynamic>?;
+
+          if (data != null && data['image'] != null) {
+            await _deleteImageFromStorage(data['image']);
+          }
+
+          await _firestore.collection('events').doc(eventId).delete();
+        }
+
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text("Selected events deleted successfully!")),
+        );
+
+        setState(() {
+          _selectedEventIds.clear();
+          _isBatchDeleteMode = false;
+        });
+      } catch (e) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text("Error: $e")),
+        );
+      }
+    }
+  }
 
 // Date & Time picker
   Future<void> _pickStartDateTime() async {
@@ -114,13 +183,30 @@ class _AdminPanelState extends State<AdminPanel> {
         startTime == null ||
         endDate == null ||
         endTime == null ||
-        rewardPointsController.text.isEmpty) {
+        rewardPointsController.text.isEmpty ||
+        maxParticipantsController.text.isEmpty) {
       // Removed location requirement
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text("Please fill all required fields!")),
       );
       return;
     }
+
+    if (maxParticipantsController.text.isEmpty ||
+        int.tryParse(maxParticipantsController.text) == null ||
+        int.parse(maxParticipantsController.text) < 1 ||
+        int.parse(maxParticipantsController.text) > 500) {
+      debugPrint(
+          "Validation failed for maxParticipants: ${maxParticipantsController.text}");
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text("Max Participants must be between 1 and 500!")),
+      );
+      return;
+    }
+
+// Ensure current participants is set with a default value
+    int currentParticipants =
+        int.tryParse(currentParticipantsController.text) ?? 0;
 
     try {
       String? imageUrl;
@@ -149,14 +235,17 @@ class _AdminPanelState extends State<AdminPanel> {
       final String eventId = eventRef.id;
 
       final Map<String, dynamic> eventData = {
-        'eventId': eventId,
+        'eventId': _isEditing ? _editingEventId : eventRef.id,
         'name': nameController.text,
         'description': descriptionController.text,
         'startTime': Timestamp.fromDate(finalStartTime),
         'endTime': Timestamp.fromDate(finalEndTime),
         'rewardPoints': int.parse(rewardPointsController.text),
-        'createdDate': Timestamp.now(),
-        'status': 'soon',
+        'createdDate':
+            _isEditing ? null : Timestamp.now(), // Only set for new events
+        'status': _isEditing ? null : 'soon', // Only set for new events
+        'maxParticipants': int.parse(maxParticipantsController.text),
+        'currentParticipants': currentParticipants,
       };
 
       if (selectedLocation != null) {
@@ -186,19 +275,41 @@ class _AdminPanelState extends State<AdminPanel> {
   }
 
   Future<void> _updateEvent() async {
+    if (_editingEventId == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text("No event selected for update!")),
+      );
+      return;
+    }
+
     if (nameController.text.isEmpty ||
         descriptionController.text.isEmpty ||
         startDate == null ||
         startTime == null ||
         endDate == null ||
         endTime == null ||
-        rewardPointsController.text.isEmpty) {
-      // Removed location requirement
+        rewardPointsController.text.isEmpty ||
+        maxParticipantsController.text.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text("Please fill all required fields!")),
       );
       return;
     }
+
+    // Separate validation for max participants
+    int? maxParticipantsValue = int.tryParse(maxParticipantsController.text);
+    if (maxParticipantsValue == null ||
+        maxParticipantsValue < 1 ||
+        maxParticipantsValue > 500) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text("Max Participants must be between 1 and 500!")),
+      );
+      return;
+    }
+
+    // Ensure current participants is set with a default value
+    int currentParticipants =
+        int.tryParse(currentParticipantsController.text) ?? 0;
 
     try {
       String? imageUrl;
@@ -230,6 +341,8 @@ class _AdminPanelState extends State<AdminPanel> {
         'startTime': Timestamp.fromDate(finalStartTime),
         'endTime': Timestamp.fromDate(finalEndTime),
         'rewardPoints': int.parse(rewardPointsController.text),
+        'maxParticipants': int.parse(maxParticipantsController.text),
+        'currentParticipants': currentParticipants,
       };
 
       if (selectedLocation != null) {
@@ -314,6 +427,10 @@ class _AdminPanelState extends State<AdminPanel> {
       _pickedImage = null;
       _currentImageUrl = null;
       _isRemovingImage = false;
+      maxParticipantsController.clear();
+      maxParticipants = 50; // Reset to default
+      currentParticipantsController.clear();
+      currentParticipants = 0; // Reset to default
     });
   }
 
@@ -361,6 +478,8 @@ class _AdminPanelState extends State<AdminPanel> {
       endDate = (eventData['endTime'] as Timestamp).toDate();
       startTime = TimeOfDay.fromDateTime(startDate!);
       endTime = TimeOfDay.fromDateTime(endDate!);
+      maxParticipantsController.text = eventData['maxParticipants'].toString();
+      maxParticipants = int.parse(maxParticipantsController.text);
 
       _isEditing = true;
       _editingEventId = id;
@@ -475,188 +594,302 @@ class _AdminPanelState extends State<AdminPanel> {
       ),
       body: Padding(
         padding: const EdgeInsets.all(16.0),
-        child: Column(
+        child: Stack(
           children: [
-            Expanded(
-              child: ListView(
-                children: [
-                  TextField(
-                    controller: nameController,
-                    decoration: InputDecoration(labelText: "Event Name"),
-                    maxLength: 40,
-                  ),
-                  TextField(
-                    controller: descriptionController,
-                    decoration: InputDecoration(labelText: "Description"),
-                    maxLines: 5,
-                    maxLength: 1000,
-                  ),
-                  TextField(
-                    controller: rewardPointsController,
-                    decoration: InputDecoration(labelText: "Reward Points"),
-                    keyboardType: TextInputType.number,
-                    inputFormatters: [
-                      FilteringTextInputFormatter.digitsOnly,
-                      NoLeadingZeroFormatter(), // Prevents leading zero
-                    ],
-                  ),
-                  Vspace(10),
-                  Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
+            Column(
+              children: [
+                Expanded(
+                  child: ListView(
                     children: [
-                      Text("Start Date and Time",
-                          style: TextStyle(fontWeight: FontWeight.bold)),
-                      Vspace(5),
-                      Row(
+                      TextField(
+                        controller: nameController,
+                        decoration: InputDecoration(labelText: "Event Name"),
+                        maxLength: 40,
+                      ),
+                      TextField(
+                        controller: descriptionController,
+                        decoration: InputDecoration(labelText: "Description"),
+                        maxLines: 5,
+                        maxLength: 1000,
+                      ),
+                      TextField(
+                        controller: rewardPointsController,
+                        decoration: InputDecoration(labelText: "Reward Points"),
+                        keyboardType: TextInputType.number,
+                        inputFormatters: [
+                          FilteringTextInputFormatter.digitsOnly,
+                          NoLeadingZeroFormatter(), // Prevents leading zero
+                        ],
+                      ),
+                      Vspace(10),
+                      Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          ElevatedButton(
-                            onPressed: _pickStartDateTime,
-                            child: Text("Select"),
+                          Text("Start Date and Time",
+                              style: TextStyle(fontWeight: FontWeight.bold)),
+                          Vspace(5),
+                          Row(
+                            children: [
+                              ElevatedButton(
+                                onPressed: _pickStartDateTime,
+                                child: Text("Select"),
+                              ),
+                              Hspace(16),
+                              Text(
+                                startDate != null && startTime != null
+                                    ? "${startDate!.year}-${startDate!.month.toString().padLeft(2, '0')}-${startDate!.day.toString().padLeft(2, '0')} ${startTime!.hour.toString().padLeft(2, '0')}:${startTime!.minute.toString().padLeft(2, '0')}"
+                                    : "Not Selected",
+                                style: TextStyle(fontSize: 16),
+                              ),
+                            ],
                           ),
-                          Hspace(16),
-                          Text(
-                            startDate != null && startTime != null
-                                ? "${startDate!.year}-${startDate!.month.toString().padLeft(2, '0')}-${startDate!.day.toString().padLeft(2, '0')} ${startTime!.hour.toString().padLeft(2, '0')}:${startTime!.minute.toString().padLeft(2, '0')}"
-                                : "Not Selected",
-                            style: TextStyle(fontSize: 16),
+                          Vspace(10),
+                          Text("End Date and Time",
+                              style: TextStyle(fontWeight: FontWeight.bold)),
+                          Vspace(5),
+                          Row(
+                            children: [
+                              ElevatedButton(
+                                onPressed: _pickEndDateTime,
+                                child: Text("Select"),
+                              ),
+                              Hspace(16),
+                              Text(
+                                endDate != null && endTime != null
+                                    ? "${endDate!.year}-${endDate!.month.toString().padLeft(2, '0')}-${endDate!.day.toString().padLeft(2, '0')} ${endTime!.hour.toString().padLeft(2, '0')}:${endTime!.minute.toString().padLeft(2, '0')}"
+                                    : "Not Selected",
+                                style: TextStyle(fontSize: 16),
+                              ),
+                            ],
                           ),
                         ],
                       ),
                       Vspace(10),
-                      Text("End Date and Time",
+                      Text("Location",
+                          style: TextStyle(fontWeight: FontWeight.bold)),
+                      Padding(
+                        padding: const EdgeInsets.symmetric(vertical: 10),
+                        child: _buildMapSelector(),
+                      ),
+                      Vspace(15),
+                      ImageUtils.buildImagePreview(
+                        pickedImage: _pickedImage,
+                        currentImageUrl: _currentImageUrl,
+                        isRemovingImage: _isRemovingImage,
+                        onPickImage: _pickImage,
+                        onRemoveImage: () {
+                          setState(() {
+                            _pickedImage = null;
+                            _isRemovingImage = true;
+                          });
+                        },
+                      ),
+                      Vspace(15),
+                      Text("Max Participants",
                           style: TextStyle(fontWeight: FontWeight.bold)),
                       Vspace(5),
                       Row(
                         children: [
-                          ElevatedButton(
-                            onPressed: _pickEndDateTime,
-                            child: Text("Select"),
+                          Expanded(
+                            child: Slider(
+                              value: maxParticipants.toDouble(),
+                              min: 1,
+                              max: 500,
+                              divisions: 499,
+                              label: maxParticipants.toString(),
+                              onChanged: (value) {
+                                setState(() {
+                                  maxParticipants = value.toInt();
+                                  maxParticipantsController.text =
+                                      maxParticipants.toString();
+                                });
+                              },
+                            ),
                           ),
-                          Hspace(16),
-                          Text(
-                            endDate != null && endTime != null
-                                ? "${endDate!.year}-${endDate!.month.toString().padLeft(2, '0')}-${endDate!.day.toString().padLeft(2, '0')} ${endTime!.hour.toString().padLeft(2, '0')}:${endTime!.minute.toString().padLeft(2, '0')}"
-                                : "Not Selected",
-                            style: TextStyle(fontSize: 16),
+                          SizedBox(
+                            width: 60,
+                            child: TextField(
+                              controller: maxParticipantsController,
+                              decoration: InputDecoration(
+                                labelText: "Max",
+                                errorText: _validateMaxParticipants(
+                                    maxParticipantsController.text),
+                              ),
+                              keyboardType: TextInputType.number,
+                              inputFormatters: [
+                                FilteringTextInputFormatter.digitsOnly,
+                              ],
+                              onChanged: (value) {
+                                int? parsedValue = int.tryParse(value);
+                                if (parsedValue != null &&
+                                    parsedValue >= 1 &&
+                                    parsedValue <= 500) {
+                                  setState(() {
+                                    maxParticipants = parsedValue;
+                                  });
+                                }
+                              },
+                            ),
                           ),
                         ],
                       ),
-                    ],
-                  ),
-                  Vspace(10),
-                  Text("Location",
-                      style: TextStyle(fontWeight: FontWeight.bold)),
-                  Padding(
-                    padding: const EdgeInsets.symmetric(vertical: 10),
-                    child: _buildMapSelector(),
-                  ),
-                  Vspace(15),
-                  ImageUtils.buildImagePreview(
-                    pickedImage: _pickedImage,
-                    currentImageUrl: _currentImageUrl,
-                    isRemovingImage: _isRemovingImage,
-                    onPickImage: _pickImage,
-                    onRemoveImage: () {
-                      setState(() {
-                        _pickedImage = null;
-                        _isRemovingImage = true;
-                      });
-                    },
-                  ),
-                  Vspace(15),
-                  Column(
-                    spacing: 5,
-                    children: [
-                      ElevatedButton(
-                        onPressed: _isEditing ? _updateEvent : _createEvent,
-                        child:
-                            Text(_isEditing ? "Save Changes" : "Create Event"),
+                      Vspace(20),
+                      Column(
+                        spacing: 5,
+                        children: [
+                          ElevatedButton(
+                            onPressed: _isEditing ? _updateEvent : _createEvent,
+                            child: Text(
+                                _isEditing ? "Save Changes" : "Create Event"),
+                          ),
+                          ElevatedButton(
+                            onPressed: _clearForm,
+                            child: Text("Clear Form"),
+                          ),
+                        ],
                       ),
-                      ElevatedButton(
-                        onPressed: _clearForm,
-                        child: Text("Clear Form"),
+                      Vspace(10),
+                      if (_isEditing)
+                        ElevatedButton(
+                          onPressed: _clearForm,
+                          child: Text("Create New Event"),
+                        ),
+                      Divider(),
+                      SizedBox(
+                        height: 16,
                       ),
-                    ],
-                  ),
-                  Vspace(10),
-                  if (_isEditing)
-                    ElevatedButton(
-                      onPressed: _clearForm,
-                      child: Text("Create New Event"),
-                    ),
-                  Divider(),
-                  SizedBox(
-                    height: 16,
-                  ),
-                  //Existing events list section
-                  Text(
-                    'Existing Events',
-                    style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
-                    textAlign: TextAlign.center,
-                  ),
-                  Vspace(5),
-                  StreamBuilder<QuerySnapshot>(
-                    stream: _firestore.collection('events').snapshots(),
-                    builder: (context, snapshot) {
-                      if (!snapshot.hasData) {
-                        return Center(child: CircularProgressIndicator());
-                      }
-                      final events = snapshot.data!.docs;
-                      return ListView.builder(
-                        shrinkWrap: true,
-                        physics: NeverScrollableScrollPhysics(),
-                        itemCount: events.length,
-                        itemBuilder: (context, index) {
-                          var eventData =
-                              events[index].data() as Map<String, dynamic>;
-                          var eventId = events[index].id;
-                          return ListTile(
-                            leading: eventData['image'] != null
-                                ? ClipRRect(
-                                    borderRadius: BorderRadius.circular(8),
-                                    child: Image.network(
-                                      eventData['image'],
-                                      width: 50,
-                                      height: 50,
-                                      fit: BoxFit.cover,
-                                    ),
-                                  )
-                                : Icon(Icons.image_not_supported),
-                            title: Text(eventData['name']),
-                            subtitle: Text(
-                              eventData['description'].length > 140
-                                  ? eventData['description'].substring(0, 140) +
-                                      '...'
-                                  : eventData['description'],
-                              maxLines:
-                                  2, // Limit the lines to control overflow
-                              overflow: TextOverflow.ellipsis,
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          Text(
+                            'Existing Events',
+                            style: TextStyle(
+                                fontSize: 16, fontWeight: FontWeight.bold),
+                            textAlign: TextAlign.center,
+                          ),
+                          IconButton(
+                            icon: Icon(
+                              _isBatchDeleteMode
+                                  ? Icons.close
+                                  : Icons.select_all_rounded,
+                              color: Colors.blue,
                             ),
-                            trailing: Row(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                IconButton(
-                                  icon: Icon(Icons.edit),
-                                  onPressed: () =>
-                                      _editEvent(eventData, eventId),
+                            onPressed: _toggleBatchDeleteMode,
+                          ),
+                        ],
+                      ),
+                      Vspace(5),
+                      StreamBuilder<QuerySnapshot>(
+                        stream: _firestore.collection('events').snapshots(),
+                        builder: (context, snapshot) {
+                          if (!snapshot.hasData) {
+                            return Center(child: CircularProgressIndicator());
+                          }
+                          final events = snapshot.data!.docs;
+                          return ListView.builder(
+                            shrinkWrap: true,
+                            physics: NeverScrollableScrollPhysics(),
+                            itemCount: events.length,
+                            itemBuilder: (context, index) {
+                              var eventData =
+                                  events[index].data() as Map<String, dynamic>;
+                              var eventId = events[index].id;
+                              return ListTile(
+                                leading: _isBatchDeleteMode
+                                    ? Checkbox(
+                                        value:
+                                            _selectedEventIds.contains(eventId),
+                                        onChanged: (isSelected) {
+                                          _toggleEventSelection(eventId);
+                                        },
+                                      )
+                                    : (eventData['image'] != null
+                                        ? ClipRRect(
+                                            borderRadius:
+                                                BorderRadius.circular(8),
+                                            child: Image.network(
+                                              eventData['image'],
+                                              width: 50,
+                                              height: 50,
+                                              fit: BoxFit.cover,
+                                            ),
+                                          )
+                                        : Icon(Icons.image_not_supported)),
+                                title: Text(eventData['name']),
+                                subtitle: Text(
+                                  eventData['description'].length > 140
+                                      ? eventData['description']
+                                              .substring(0, 140) +
+                                          '...'
+                                      : eventData['description'],
+                                  maxLines:
+                                      2, // Limit the lines to control overflow
+                                  overflow: TextOverflow.ellipsis,
                                 ),
-                                IconButton(
-                                  icon: Icon(Icons.delete),
-                                  onPressed: () => _deleteEvent(eventId),
-                                ),
-                              ],
-                            ),
+                                trailing: !_isBatchDeleteMode
+                                    ? Row(
+                                        mainAxisSize: MainAxisSize.min,
+                                        children: [
+                                          IconButton(
+                                            icon: Icon(Icons.edit),
+                                            onPressed: () =>
+                                                _editEvent(eventData, eventId),
+                                          ),
+                                          IconButton(
+                                            icon: Icon(Icons.delete),
+                                            onPressed: () =>
+                                                _deleteEvent(eventId),
+                                          ),
+                                        ],
+                                      )
+                                    : null,
+                              );
+                            },
                           );
                         },
-                      );
-                    },
+                      ),
+                    ],
                   ),
-                ],
-              ),
+                ),
+              ],
             ),
+            if (_isBatchDeleteMode && _selectedEventIds.isNotEmpty)
+              Positioned(
+                bottom: 16,
+                right: 16,
+                child: FloatingActionButton(
+                  onPressed: _batchDeleteEvents,
+                  child: Icon(
+                    Icons.delete,
+                    color: Colors.red,
+                  ),
+                  tooltip: "Delete Selected Events",
+                ),
+              ),
           ],
         ),
       ),
     );
   }
+}
+
+String? _validateMaxParticipants(String? value) {
+  if (value == null || value.isEmpty) {
+    return 'Cannot be empty';
+  }
+
+  int? parsedValue = int.tryParse(value);
+  if (parsedValue == null) {
+    return 'Invalid number';
+  }
+
+  if (parsedValue < 1) {
+    return 'Min 1';
+  }
+
+  if (parsedValue > 500) {
+    return 'Max 500';
+  }
+
+  return null;
 }

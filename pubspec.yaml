@@ -47,8 +47,10 @@ dependencies:
   dio: ^5.7.0
   flutter_polyline_points: ^2.1.0
   geolocator: ^13.0.3
+  geocoding: ^3.0.0
   rxdart: ^0.28.0
   cloud_functions: ^5.3.3
+  
   
 dev_dependencies:
   flutter_test:

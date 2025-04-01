@@ -1,10 +1,10 @@
 import 'dart:async';
-import 'dart:ui';
 import 'package:community_impact_tracker/services/firebase_service.dart';
 import 'package:community_impact_tracker/utils/AddSpace.dart';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 
 class EventCard extends StatefulWidget {
   final String name;
@@ -17,7 +17,9 @@ class EventCard extends StatefulWidget {
   final double latitude;
   final double longitude;
   final int rewardPoints;
+  final int maxParticipants;
   final String status;
+  final int currentParticipants; // New field added
   final VoidCallback onSignIn;
 
   const EventCard({
@@ -32,7 +34,9 @@ class EventCard extends StatefulWidget {
     required this.latitude,
     required this.longitude,
     required this.rewardPoints,
+    required this.maxParticipants,
     required this.status,
+    required this.currentParticipants, // New field added
     required this.onSignIn,
   });
 
@@ -386,6 +390,30 @@ class _EventCardState extends State<EventCard> {
                     'Location: Coming soon...',
                     style: TextStyle(fontSize: 16),
                   ),
+                  Vspace(4),
+
+                  // Display the number of signed-up users
+                  FutureBuilder<int>(
+                    future: _getSignedUpUsersCount(widget.eventId),
+                    builder: (context, snapshot) {
+                      if (snapshot.connectionState == ConnectionState.waiting) {
+                        return Text(
+                          'Loading signed-up users...',
+                          style: TextStyle(fontSize: 16, color: Colors.grey),
+                        );
+                      } else if (snapshot.hasError) {
+                        return Text(
+                          'Error loading signed-up users',
+                          style: TextStyle(fontSize: 16, color: Colors.red),
+                        );
+                      } else {
+                        return Text(
+                          '${snapshot.data} users have already signed up!',
+                          style: TextStyle(fontSize: 16),
+                        );
+                      }
+                    },
+                  ),
                   Vspace(20),
 
                   // Sign-Up Button
@@ -435,6 +463,40 @@ class _EventCardState extends State<EventCard> {
         );
       },
     );
+  }
+
+  // Fetch the number of signed-up users for the event
+  Future<int> _getSignedUpUsersCount(String eventId) async {
+    try {
+      final userDocsSnapshot = await FirebaseFirestore.instance
+          .collection('user_events')
+          .get(); // Fetch all user documents in the "user_events" collection
+
+      print(
+          'Documents fetched in user_events: ${userDocsSnapshot.docs.length}'); // Debug print
+
+      int count = 0;
+
+      for (var userDoc in userDocsSnapshot.docs) {
+        print('Checking user document ID: ${userDoc.id}'); // Debug print
+
+        final eventDoc = await userDoc.reference
+            .collection('events')
+            .doc(eventId)
+            .get(); // Check if the event exists in the user's "events" collection
+
+        if (eventDoc.exists) {
+          print('Event found for user: ${userDoc.id}'); // Debug print
+          count++; // Increment the count if the event exists
+        }
+      }
+
+      print('Total users signed up for event $eventId: $count'); // Debug print
+      return count;
+    } catch (e) {
+      print('Error fetching signed-up users count: $e');
+      return 0;
+    }
   }
 
   void _showEventCheckInDialog(BuildContext context, String eventId) {
