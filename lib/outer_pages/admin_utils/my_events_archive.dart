@@ -1,6 +1,6 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
-import '../widgets/event_card.dart';
+import '../../widgets/event_card.dart';
 
 class MyEventsArchive extends StatelessWidget {
   final String userId;

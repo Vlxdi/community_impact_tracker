@@ -1,8 +1,11 @@
 import 'package:community_impact_tracker/main_pages/events_page.dart';
+import 'package:community_impact_tracker/main_pages/shop/cart_provider.dart';
+import 'package:community_impact_tracker/main_pages/shop/shop_page.dart';
 import 'package:flutter/material.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:provider/provider.dart';
 import 'outer_pages/login.dart';
 import 'main_pages/profile.dart';
 import 'firebase_options.dart';
@@ -18,7 +21,14 @@ void main() async {
     cacheSizeBytes: Settings.CACHE_SIZE_UNLIMITED,
   );
 
-  runApp(MyApp());
+  runApp(
+    MultiProvider(
+      providers: [
+        ChangeNotifierProvider(create: (_) => CartProvider()),
+      ],
+      child: MyApp(),
+    ),
+  );
 }
 
 class MyApp extends StatelessWidget {
@@ -118,8 +128,7 @@ class _MainPageState extends State<MainPage> {
 
   final List<Widget> _pages = <Widget>[
     EventsPage(),
-    Center(child: Text('This is the Shop Page')),
-    Center(child: Text('This is the Leaderboard Page')),
+    ShopPage(),
     ProfilePage(),
   ];
 

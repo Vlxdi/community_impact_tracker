@@ -1,5 +1,5 @@
 import 'dart:io';
-import 'package:community_impact_tracker/outer_pages/my_events_archive.dart';
+import 'package:community_impact_tracker/outer_pages/admin_utils/my_events_archive.dart';
 import 'package:community_impact_tracker/utils/AddSpace.dart';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';

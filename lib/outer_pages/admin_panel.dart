@@ -6,10 +6,11 @@ import 'package:flutter/services.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:image_picker/image_picker.dart';
 
-import 'ap_utils/auth_utils.dart';
-import 'ap_utils/date_picker_utils.dart';
-import 'ap_utils/image_picker_utils.dart';
-import 'ap_utils/location_utils.dart';
+import 'admin_utils/auth_utils.dart';
+import 'admin_utils/date_picker_utils.dart';
+import 'admin_utils/image_picker_utils.dart';
+import 'admin_utils/location_utils.dart';
+import 'admin_shop.dart';
 
 class AdminPanel extends StatefulWidget {
   const AdminPanel({super.key});
@@ -53,6 +54,20 @@ class _AdminPanelState extends State<AdminPanel> {
   final Set<String> _selectedEventIds =
       {}; // Store selected event IDs for batch delete
   bool _isBatchDeleteMode = false; // Track if batch delete mode is active
+
+  bool _isShopPanel = false; // Track the current panel
+
+  void _togglePanel() {
+    setState(() {
+      _isShopPanel = !_isShopPanel;
+    });
+    if (_isShopPanel) {
+      Navigator.pushReplacement(
+        context,
+        MaterialPageRoute(builder: (context) => AdminShopPage()),
+      );
+    }
+  }
 
   void _toggleEventSelection(String eventId) {
     setState(() {
@@ -584,8 +599,13 @@ class _AdminPanelState extends State<AdminPanel> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: Text("Admin Panel"),
+        title: Text("Admin Panel - Events"),
         actions: [
+          IconButton(
+            icon:
+                Icon(_isShopPanel ? Icons.event : Icons.shopping_cart_rounded),
+            onPressed: _togglePanel,
+          ),
           IconButton(
             icon: Icon(Icons.logout),
             onPressed: () => AuthUtils.logout(context),
@@ -755,9 +775,7 @@ class _AdminPanelState extends State<AdminPanel> {
                           child: Text("Create New Event"),
                         ),
                       Divider(),
-                      SizedBox(
-                        height: 16,
-                      ),
+                      Vspace(16),
                       Row(
                         mainAxisAlignment: MainAxisAlignment.spaceBetween,
                         children: [

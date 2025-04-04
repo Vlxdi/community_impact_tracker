@@ -380,14 +380,8 @@ class _EventCardState extends State<EventCard> {
                     style: TextStyle(fontSize: 16),
                   ),
                   Vspace(16),
-
                   Text(
-                    'Created on: ${formatDate(widget.createdDate)}',
-                    style: TextStyle(fontSize: 14, color: Colors.grey),
-                  ),
-                  Vspace(4),
-                  Text(
-                    'Location: Coming soon...',
+                    'Location: (${widget.latitude.toStringAsFixed(6)}, ${widget.longitude.toStringAsFixed(6)})',
                     style: TextStyle(fontSize: 16),
                   ),
                   Vspace(4),
@@ -407,15 +401,30 @@ class _EventCardState extends State<EventCard> {
                           style: TextStyle(fontSize: 16, color: Colors.red),
                         );
                       } else {
-                        return Text(
-                          '${snapshot.data} users have already signed up!',
-                          style: TextStyle(fontSize: 16),
+                        return Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              '${snapshot.data} users have already signed up!',
+                              style: TextStyle(fontSize: 16),
+                            ),
+                            Vspace(4),
+                            Text(
+                              'Max participants: ${widget.maxParticipants}',
+                              style: TextStyle(
+                                  fontSize: 16, color: Colors.grey[700]),
+                            ),
+                          ],
                         );
                       }
                     },
                   ),
                   Vspace(20),
-
+                  Text(
+                    'Created on: ${formatDate(widget.createdDate)}',
+                    style: TextStyle(fontSize: 14, color: Colors.grey),
+                  ),
+                  Vspace(4),
                   // Sign-Up Button
                   Center(
                     child: widget.status != 'awaiting' &&
