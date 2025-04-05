@@ -636,17 +636,24 @@ Future<void> addPointsToWallet(String eventId) async {
     }
     int rewardPoints = eventSnapshot.get('rewardPoints');
 
-    // Fetch the user's current wallet balance
+    // Fetch the user's current wallet balance and total points
     DocumentReference userRef = firestore.collection('users').doc(userId);
     DocumentSnapshot userSnapshot = await userRef.get();
     int currentBalance =
         userSnapshot.exists ? userSnapshot.get('wallet_balance') ?? 0 : 0;
+    int totalPoints =
+        userSnapshot.exists ? userSnapshot.get('total_points') ?? 0 : 0;
 
-    // Update the wallet balance
+    // Update the wallet balance and total points
     int newBalance = currentBalance + rewardPoints;
-    await userRef.update({'wallet_balance': newBalance});
+    int newTotalPoints = totalPoints + rewardPoints;
+    await userRef.update({
+      'wallet_balance': newBalance,
+      'total_points': newTotalPoints,
+    });
 
-    print("✅ Points added successfully! New Balance: $newBalance");
+    print(
+        "✅ Points added successfully! New Balance: $newBalance, Total Points: $newTotalPoints");
   } catch (e) {
     print("❌ Error updating wallet: $e");
   }

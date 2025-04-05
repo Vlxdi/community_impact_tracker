@@ -356,6 +356,8 @@ class _LoginPageState extends State<LoginPage> {
           'profile_picture': '', // Empty profile picture field
           'wallet_balance': 0, // Initial wallet balance of 0
           'location': _selectedCountry, // Save the selected country
+          'total_points': 0, // Initial total points of 0
+          'level': 1, // Initial level of 0
         });
 
         // Automatically navigate the user to the app

@@ -1,4 +1,5 @@
 import 'package:community_impact_tracker/main_pages/events_page.dart';
+import 'package:community_impact_tracker/main_pages/leaderboard/leaderboard_page.dart';
 import 'package:community_impact_tracker/main_pages/shop/cart_provider.dart';
 import 'package:community_impact_tracker/main_pages/shop/shop_page.dart';
 import 'package:flutter/material.dart';
@@ -129,6 +130,7 @@ class _MainPageState extends State<MainPage> {
   final List<Widget> _pages = <Widget>[
     EventsPage(),
     ShopPage(),
+    LeaderboardPage(),
     ProfilePage(),
   ];
 

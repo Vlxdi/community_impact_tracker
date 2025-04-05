@@ -17,6 +17,48 @@ class ProfilePage extends StatefulWidget {
   _ProfilePageState createState() => _ProfilePageState();
 }
 
+final List<int> levelThresholds = [
+  0,
+  50,
+  120,
+  210,
+  320,
+  450,
+  600,
+  770,
+  960,
+  1170,
+  1400,
+  1650,
+  1920,
+  2210,
+  2520,
+  2850,
+  3200,
+  3570,
+  3960,
+  4370,
+  4800,
+  5250,
+  5720,
+  6210,
+  6720,
+  7250,
+  7800,
+  8370,
+  8960,
+  10000
+];
+
+int getUserLevel(int totalPoints) {
+  for (int i = levelThresholds.length - 1; i >= 0; i--) {
+    if (totalPoints >= levelThresholds[i]) {
+      return i + 1;
+    }
+  }
+  return 1;
+}
+
 class _ProfilePageState extends State<ProfilePage> {
   final FirebaseAuth _auth = FirebaseAuth.instance;
   final FirebaseStorage _storage =
@@ -27,12 +69,14 @@ class _ProfilePageState extends State<ProfilePage> {
   ImageProvider<Object>? _profileImage;
   String _username = "Loading...";
   bool _uploading = false; // Add uploading state
+  int _totalPoints = 0; // Add a variable to store total points
 
   @override
   void initState() {
     super.initState();
     _fetchUsername();
     _loadProfileImage();
+    _fetchTotalPoints(); // Fetch total points on initialization
   }
 
   Future<void> _fetchUsername() async {
@@ -63,6 +107,31 @@ class _ProfilePageState extends State<ProfilePage> {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text('Unable to fetch profile information')),
         );
+      }
+    }
+  }
+
+  Future<void> _fetchTotalPoints() async {
+    final user = _auth.currentUser;
+    if (user != null) {
+      try {
+        final userDoc =
+            await _firestore.collection('users').doc(user.uid).get();
+        if (userDoc.exists) {
+          setState(() {
+            _totalPoints = userDoc.data()?['total_points'] ?? 0;
+          });
+
+          // Calculate the user's level
+          int userLevel = getUserLevel(_totalPoints);
+
+          // Update the user's level in the database
+          await _firestore.collection('users').doc(user.uid).update({
+            'level': userLevel,
+          });
+        }
+      } catch (e) {
+        print("Failed to fetch total points: $e");
       }
     }
   }
@@ -175,13 +244,13 @@ class _ProfilePageState extends State<ProfilePage> {
               style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold));
         }
 
-        int walletBalance = snapshot.data!.get('wallet_balance') ?? 0;
+        double walletBalance = snapshot.data!.get('wallet_balance') ?? 0.0;
 
         return Row(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
             const Icon(Icons.account_balance_wallet_rounded, size: 30),
-            Text("Wallet Balance: $walletBalance",
+            Text("Wallet Balance: ${walletBalance.toStringAsFixed(2)}",
                 style:
                     const TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
           ],
@@ -290,14 +359,16 @@ class _ProfilePageState extends State<ProfilePage> {
               Center(
                 child: Column(
                   children: [
-                    const Row(
+                    Row(
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
                         Icon(Icons.keyboard_double_arrow_up_rounded,
                             color: Colors.green, size: 30),
-                        Text("Level 10",
-                            style: TextStyle(
-                                fontSize: 18, fontWeight: FontWeight.bold)),
+                        Text(
+                          "Level ${getUserLevel(_totalPoints)}", // Use fetched total points
+                          style: TextStyle(
+                              fontSize: 18, fontWeight: FontWeight.bold),
+                        ),
                       ],
                     ),
                     Vspace(5),
