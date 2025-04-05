@@ -237,7 +237,7 @@ class _EventsPageState extends State<EventsPage> {
           'startTime': (data['startTime'] as Timestamp).toDate(),
           'endTime': (data['endTime'] as Timestamp).toDate(),
           'createdDate': (data['createdDate'] as Timestamp).toDate(),
-          'rewardPoints': data['rewardPoints'] ?? 0,
+          'rewardPoints': (data['rewardPoints'] as num).toDouble(),
           'status': status,
           'latitude': location.latitude,
           'longitude': location.longitude,

@@ -38,7 +38,7 @@ class MyEventsArchive extends StatelessWidget {
               (data['startTime'] as Timestamp?)?.toDate() ?? DateTime.now(),
           'endTime':
               (data['endTime'] as Timestamp?)?.toDate() ?? DateTime.now(),
-          'rewardPoints': data['rewardPoints'] ?? 0,
+          'rewardPoints': (data['rewardPoints'] as num?)?.toDouble() ?? 0.0,
           'status': data['status'] ?? 'completed',
           'createdDate':
               (data['createdDate'] as Timestamp?)?.toDate() ?? DateTime.now(),

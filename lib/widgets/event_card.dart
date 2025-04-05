@@ -16,7 +16,7 @@ class EventCard extends StatefulWidget {
   final DateTime createdDate;
   final double latitude;
   final double longitude;
-  final int rewardPoints;
+  final double rewardPoints;
   final int maxParticipants;
   final String status;
   final int currentParticipants; // New field added

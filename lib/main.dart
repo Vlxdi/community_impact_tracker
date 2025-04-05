@@ -8,7 +8,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:provider/provider.dart';
 import 'outer_pages/login.dart';
-import 'main_pages/profile.dart';
+import 'main_pages/profile/profile.dart';
 import 'firebase_options.dart';
 import 'outer_pages/admin_panel.dart';
 

@@ -1,14 +1,14 @@
 import 'dart:io';
-import 'package:community_impact_tracker/outer_pages/admin_utils/my_events_archive.dart';
+import 'package:community_impact_tracker/main_pages/profile/my_events_archive.dart';
 import 'package:community_impact_tracker/utils/AddSpace.dart';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_storage/firebase_storage.dart';
-import '../widgets/achievement.dart';
-import '../widgets/badge.dart';
-import 'settings/settings.dart';
+import '../../widgets/achievement.dart';
+import '../../widgets/badge.dart';
+import '../settings/settings.dart';
 
 class ProfilePage extends StatefulWidget {
   const ProfilePage({super.key});
@@ -69,7 +69,7 @@ class _ProfilePageState extends State<ProfilePage> {
   ImageProvider<Object>? _profileImage;
   String _username = "Loading...";
   bool _uploading = false; // Add uploading state
-  int _totalPoints = 0; // Add a variable to store total points
+  double _totalPoints = 0.0; // Change type to double
 
   @override
   void initState() {
@@ -119,11 +119,13 @@ class _ProfilePageState extends State<ProfilePage> {
             await _firestore.collection('users').doc(user.uid).get();
         if (userDoc.exists) {
           setState(() {
-            _totalPoints = userDoc.data()?['total_points'] ?? 0;
+            _totalPoints = (userDoc.data()?['total_points'] ?? 0.0)
+                .toDouble(); // Ensure double
           });
 
           // Calculate the user's level
-          int userLevel = getUserLevel(_totalPoints);
+          int userLevel = getUserLevel(
+              _totalPoints.toInt()); // Convert to int for level calculation
 
           // Update the user's level in the database
           await _firestore.collection('users').doc(user.uid).update({
@@ -240,11 +242,12 @@ class _ProfilePageState extends State<ProfilePage> {
         if (!snapshot.hasData ||
             snapshot.data == null ||
             !snapshot.data!.exists) {
-          return const Text("Wallet Balance: 0",
+          return const Text("Wallet Balance: 0.00",
               style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold));
         }
 
-        double walletBalance = snapshot.data!.get('wallet_balance') ?? 0.0;
+        double walletBalance = (snapshot.data!.get('wallet_balance') ?? 0.0)
+            .toDouble(); // Ensure double
 
         return Row(
           mainAxisAlignment: MainAxisAlignment.center,
@@ -365,7 +368,7 @@ class _ProfilePageState extends State<ProfilePage> {
                         Icon(Icons.keyboard_double_arrow_up_rounded,
                             color: Colors.green, size: 30),
                         Text(
-                          "Level ${getUserLevel(_totalPoints)}", // Use fetched total points
+                          "Level ${getUserLevel(_totalPoints.toInt())}", // Use fetched total points
                           style: TextStyle(
                               fontSize: 18, fontWeight: FontWeight.bold),
                         ),

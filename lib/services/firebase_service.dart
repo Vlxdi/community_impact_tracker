@@ -181,15 +181,20 @@ class FirebaseService {
     }
 
     try {
-      await _firestore
-          .collection('user_events')
-          .doc(userId)
-          .collection('events')
-          .doc(eventId)
-          .set({
+      // Ensure the user's document in the user_events collection exists with a createdAt field
+      DocumentReference userDocRef =
+          _firestore.collection('user_events').doc(userId);
+
+      await userDocRef.set({
+        'createdAt': FieldValue.serverTimestamp(), // Add createdAt field
+      }, SetOptions(merge: true)); // Merge to avoid overwriting existing data
+
+      // Add the event document inside the user's events subcollection
+      await userDocRef.collection('events').doc(eventId).set({
         'status': 'awaiting',
         'signUpTime': FieldValue.serverTimestamp(),
       });
+
       print("User signed up for the event!");
     } catch (e) {
       print("Error signing up for event: $e");
@@ -634,23 +639,36 @@ Future<void> addPointsToWallet(String eventId) async {
     if (!eventSnapshot.exists) {
       throw Exception("Event not found.");
     }
-    int rewardPoints = eventSnapshot.get('rewardPoints');
+    double rewardPoints = (eventSnapshot.get('rewardPoints') as num).toDouble();
 
     // Fetch the user's current wallet balance and total points
     DocumentReference userRef = firestore.collection('users').doc(userId);
     DocumentSnapshot userSnapshot = await userRef.get();
-    int currentBalance =
-        userSnapshot.exists ? userSnapshot.get('wallet_balance') ?? 0 : 0;
-    int totalPoints =
-        userSnapshot.exists ? userSnapshot.get('total_points') ?? 0 : 0;
+
+    // Initialize wallet_balance and total_points if they don't exist
+    double currentBalance = userSnapshot.exists
+        ? (userSnapshot.data() as Map<String, dynamic>)['wallet_balance'] is int
+            ? (userSnapshot.data() as Map<String, dynamic>)['wallet_balance']
+                .toDouble()
+            : (userSnapshot.data() as Map<String, dynamic>)['wallet_balance'] ??
+                0.0
+        : 0.0;
+
+    double totalPoints = userSnapshot.exists
+        ? (userSnapshot.data() as Map<String, dynamic>)['total_points'] is int
+            ? (userSnapshot.data() as Map<String, dynamic>)['total_points']
+                .toDouble()
+            : (userSnapshot.data() as Map<String, dynamic>)['total_points'] ??
+                0.0
+        : 0.0;
 
     // Update the wallet balance and total points
-    int newBalance = currentBalance + rewardPoints;
-    int newTotalPoints = totalPoints + rewardPoints;
-    await userRef.update({
+    double newBalance = currentBalance + rewardPoints;
+    double newTotalPoints = totalPoints + rewardPoints;
+    await userRef.set({
       'wallet_balance': newBalance,
       'total_points': newTotalPoints,
-    });
+    }, SetOptions(merge: true)); // Use merge to avoid overwriting other fields
 
     print(
         "✅ Points added successfully! New Balance: $newBalance, Total Points: $newTotalPoints");
