@@ -1,12 +1,17 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:community_impact_tracker/main_pages/events/events_calendar.dart';
 import 'package:community_impact_tracker/services/firebase_service.dart';
-import 'package:community_impact_tracker/utils/AddSpace.dart';
+import 'package:community_impact_tracker/utils/addSpace.dart';
 import 'package:firebase_auth/firebase_auth.dart' show FirebaseAuth, User;
 import 'package:flutter/material.dart';
 import 'dart:async';
 import 'package:intl/intl.dart';
 import 'package:geolocator/geolocator.dart'; // Add this import for location services
-import '../widgets/event_card.dart';
+import '../../widgets/event_card.dart';
+import 'package:community_impact_tracker/utils/buildListTile.dart';
+import 'package:community_impact_tracker/services/location_service.dart';
+import 'package:community_impact_tracker/utils/eventFilters.dart';
+import 'package:community_impact_tracker/widgets/buildEventCard.dart';
 
 class EventsPage extends StatefulWidget {
   const EventsPage({super.key});
@@ -33,7 +38,8 @@ class _EventsPageState extends State<EventsPage> {
   bool isLoadingMore = false;
   DocumentSnapshot? _lastDocument;
   bool _hasMoreEvents = true;
-  Position? userLocation; // Store the user's location
+  final LocationService _locationService = LocationService();
+  Position? userLocation;
 
   // Add this line to make showSignedUpSection a class-level variable
   bool showSignedUpSection = false;
@@ -70,33 +76,7 @@ class _EventsPageState extends State<EventsPage> {
 
   // Fetch the user's current location
   Future<void> _fetchUserLocation() async {
-    try {
-      bool serviceEnabled = await Geolocator.isLocationServiceEnabled();
-      if (!serviceEnabled) {
-        print("Location services are disabled.");
-        return;
-      }
-
-      LocationPermission permission = await Geolocator.checkPermission();
-      if (permission == LocationPermission.denied) {
-        permission = await Geolocator.requestPermission();
-        if (permission == LocationPermission.denied) {
-          print("Location permissions are denied.");
-          return;
-        }
-      }
-
-      if (permission == LocationPermission.deniedForever) {
-        print("Location permissions are permanently denied.");
-        return;
-      }
-
-      userLocation = await Geolocator.getCurrentPosition();
-      print(
-          "User location fetched: ${userLocation?.latitude}, ${userLocation?.longitude}");
-    } catch (e) {
-      print("Error fetching user location: $e");
-    }
+    userLocation = await _locationService.fetchUserLocation();
   }
 
   // Clear all events and subscriptions
@@ -241,8 +221,8 @@ class _EventsPageState extends State<EventsPage> {
           'status': status,
           'latitude': location.latitude,
           'longitude': location.longitude,
-          'isSignedUp': userEventIds.contains(eventId), // Track signup status
-          'maxParticipants': data['maxParticipants'] ?? 0, // Handle null safely
+          'isSignedUp': userEventIds.contains(eventId),
+          'maxParticipants': data['maxParticipants'] ?? 0,
           'currentParticipants': data['currentParticipants'] ?? 0,
         };
 
@@ -330,94 +310,13 @@ class _EventsPageState extends State<EventsPage> {
   }
 
   void _applySorting(List<Map<String, dynamic>> eventsList) {
-    if (selectedSort == 'most_recent') {
-      eventsList.sort((a, b) => b['createdDate'].compareTo(a['createdDate']));
-    } else if (selectedSort == 'most_points') {
-      eventsList.sort((a, b) => b['rewardPoints'].compareTo(a['rewardPoints']));
-    } else if (selectedSort == 'near_me' && userLocation != null) {
-      eventsList.sort((a, b) {
-        double distanceA = Geolocator.distanceBetween(
-          userLocation!.latitude,
-          userLocation!.longitude,
-          a['latitude'],
-          a['longitude'],
-        );
-        double distanceB = Geolocator.distanceBetween(
-          userLocation!.latitude,
-          userLocation!.longitude,
-          b['latitude'],
-          b['longitude'],
-        );
-        return distanceA.compareTo(distanceB);
-      });
-    } else if (selectedSort == 'starting_soon') {
-      eventsList.sort((a, b) =>
-          a['startTime'].compareTo(b['startTime'])); // Sort in ascending order
-    } else if (selectedSort == 'duration') {
-      eventsList.sort((a, b) {
-        Duration durationA = a['endTime'].difference(a['startTime']);
-        Duration durationB = b['endTime'].difference(a['startTime']);
-        return durationB.compareTo(durationA); // Sort by longest duration
-      });
-    }
+    applySorting(eventsList, selectedSort, userLocation);
   }
 
   void _applyFilter() {
     DateTime now = DateTime.now();
-    int daysToMonday = (now.weekday == 7) ? 6 : now.weekday - 1;
-    DateTime startOfWeek = now.subtract(Duration(days: daysToMonday)).copyWith(
-        hour: 0, minute: 0, second: 0, millisecond: 0, microsecond: 0);
-    DateTime endOfWeek =
-        startOfWeek.add(Duration(days: 6, hours: 23, minutes: 59, seconds: 59));
-    DateTime startOfNextWeek = startOfWeek.add(Duration(days: 7));
-
-    for (var event in events) {
-      DateTime startTime = event['startTime'];
-      if (startTime.isBefore(now) && event['status'] == 'upcoming') {
-        event['status'] = 'ongoing';
-      }
-    }
-
-    List<Map<String, dynamic>> tempFiltered = [];
-
-    if (selectedFilter == 'ongoing') {
-      tempFiltered = events.where((event) {
-        DateTime startTime = event['startTime'];
-        DateTime endTime = event['endTime'];
-        String status = event['status'];
-
-        bool isActionable = (status == 'soon' ||
-            status == 'active' ||
-            status == 'awaiting' ||
-            status == 'ended' ||
-            status == 'overdue' ||
-            status == 'pending');
-        bool isWithinThisWeek = (startTime.isAfter(startOfWeek) ||
-                startTime.isAtSameMomentAs(startOfWeek)) &&
-            (endTime.isBefore(endOfWeek) ||
-                endTime.isAtSameMomentAs(endOfWeek));
-
-        return isActionable && isWithinThisWeek;
-      }).toList();
-    } else if (selectedFilter == 'recently ended') {
-      tempFiltered = events.where((event) {
-        DateTime endTime = event['endTime'];
-        String status = event['status'];
-
-        bool isEndedAndStatusValid =
-            (endTime.isBefore(now) || endTime.isAtSameMomentAs(now)) &&
-                (status == 'participated' || status == 'absent');
-
-        return isEndedAndStatusValid;
-      }).toList();
-    } else if (selectedFilter == 'upcoming') {
-      tempFiltered = events.where((event) {
-        DateTime startTime = event['startTime'];
-        return startTime.isAfter(startOfNextWeek);
-      }).toList();
-    } else {
-      tempFiltered = List.from(events);
-    }
+    List<Map<String, dynamic>> tempFiltered =
+        applyFilter(events, selectedFilter, userLocation, now);
 
     // Split into "Your Events" and "Other Events" for the ongoing filter
     if (selectedFilter == 'ongoing' || selectedFilter == 'upcoming') {
@@ -616,7 +515,14 @@ class _EventsPageState extends State<EventsPage> {
                     ),
                     child: IconButton(
                       icon: Icon(Icons.calendar_month_rounded),
-                      onPressed: () {},
+                      onPressed: () {
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (context) => EventsCalendarPage(),
+                          ),
+                        );
+                      },
                     ),
                   ),
                   // Date and time
@@ -738,7 +644,7 @@ class _EventsPageState extends State<EventsPage> {
                                 child: Column(
                                   mainAxisSize: MainAxisSize.min,
                                   children: [
-                                    _buildListTile(
+                                    buildListTile(
                                       icon: Icons.more_time_rounded,
                                       title: 'Most Recent',
                                       isSelected: selectedSort == 'most_recent',
@@ -752,7 +658,7 @@ class _EventsPageState extends State<EventsPage> {
                                       },
                                       isTop: true,
                                     ),
-                                    _buildListTile(
+                                    buildListTile(
                                       icon: Icons.star,
                                       title: 'Most Points',
                                       isSelected: selectedSort == 'most_points',
@@ -765,7 +671,7 @@ class _EventsPageState extends State<EventsPage> {
                                         Navigator.pop(context);
                                       },
                                     ),
-                                    _buildListTile(
+                                    buildListTile(
                                       icon: Icons.my_location_rounded,
                                       title: 'Near Me',
                                       isSelected: selectedSort == 'near_me',
@@ -778,7 +684,7 @@ class _EventsPageState extends State<EventsPage> {
                                         Navigator.pop(context);
                                       },
                                     ),
-                                    _buildListTile(
+                                    buildListTile(
                                       icon: Icons.timelapse_rounded,
                                       title: 'Starting Soon',
                                       isSelected:
@@ -792,13 +698,27 @@ class _EventsPageState extends State<EventsPage> {
                                         Navigator.pop(context);
                                       },
                                     ),
-                                    _buildListTile(
+                                    buildListTile(
                                       icon: Icons.hourglass_top_rounded,
                                       title: 'Duration',
                                       isSelected: selectedSort == 'duration',
                                       onTap: () {
                                         setState(() {
                                           selectedSort = 'duration';
+                                          _applySorting(filteredEvents);
+                                          _applySorting(signedUpEvents);
+                                        });
+                                        Navigator.pop(context);
+                                      },
+                                    ),
+                                    buildListTile(
+                                      icon: Icons.people,
+                                      title: 'Most Participants',
+                                      isSelected:
+                                          selectedSort == 'most_participants',
+                                      onTap: () {
+                                        setState(() {
+                                          selectedSort = 'most_participants';
                                           _applySorting(filteredEvents);
                                           _applySorting(signedUpEvents);
                                         });
@@ -876,21 +796,9 @@ class _EventsPageState extends State<EventsPage> {
                                 ],
                               ),
                               children: signedUpEvents.map((event) {
-                                return EventCard(
-                                  name: event['name'],
-                                  description: event['description'],
-                                  eventId: event['eventId'],
-                                  image: event['image'],
-                                  startTime: event['startTime'],
-                                  endTime: event['endTime'],
-                                  createdDate: event['createdDate'],
-                                  latitude: event['latitude'],
-                                  longitude: event['longitude'],
-                                  rewardPoints: event['rewardPoints'],
-                                  maxParticipants: event['maxParticipants'],
-                                  currentParticipants:
-                                      event['currentParticipants'],
-                                  status: event['status'],
+                                return buildEventCard(
+                                  context: context,
+                                  event: event,
                                   onSignIn: () => handleSignIn(
                                       signedUpEvents.indexOf(event), true),
                                 );
@@ -949,22 +857,9 @@ class _EventsPageState extends State<EventsPage> {
                                   ]
                                 : [
                                     ...filteredEvents.map((event) {
-                                      return EventCard(
-                                        name: event['name'],
-                                        description: event['description'],
-                                        eventId: event['eventId'],
-                                        image: event['image'],
-                                        startTime: event['startTime'],
-                                        endTime: event['endTime'],
-                                        createdDate: event['createdDate'],
-                                        latitude: event['latitude'],
-                                        longitude: event['longitude'],
-                                        rewardPoints: event['rewardPoints'],
-                                        maxParticipants:
-                                            event['maxParticipants'],
-                                        currentParticipants:
-                                            event['currentParticipants'],
-                                        status: event['status'],
+                                      return buildEventCard(
+                                        context: context,
+                                        event: event,
                                         onSignIn: () => handleSignIn(
                                             filteredEvents.indexOf(event),
                                             false),
@@ -984,29 +879,6 @@ class _EventsPageState extends State<EventsPage> {
             ),
           ],
         ),
-      ),
-    );
-  }
-
-  Widget _buildListTile({
-    required IconData icon,
-    required String title,
-    required bool isSelected,
-    required VoidCallback onTap,
-    bool isTop = false,
-  }) {
-    return Container(
-      decoration: BoxDecoration(
-        color: isSelected ? Colors.blue[100] : Colors.transparent,
-        borderRadius: BorderRadius.only(
-          topLeft: isTop ? Radius.circular(20) : Radius.zero,
-          topRight: isTop ? Radius.circular(20) : Radius.zero,
-        ),
-      ),
-      child: ListTile(
-        leading: Icon(icon),
-        title: Text(title),
-        onTap: onTap,
       ),
     );
   }

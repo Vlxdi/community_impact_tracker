@@ -1,15 +1,17 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:community_impact_tracker/utils/AddSpace.dart';
-import 'package:community_impact_tracker/utils/No_leading_zero.dart';
+import 'package:community_impact_tracker/utils/addSpace.dart';
+import 'package:community_impact_tracker/utils/noLeadingZero.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:image_picker/image_picker.dart';
+import 'package:community_impact_tracker/outer_pages/admin_utils/maxParticipantsValidations.dart';
+import 'package:community_impact_tracker/outer_pages/admin_utils/mapSelector.dart';
 
-import 'admin_utils/auth_utils.dart';
-import 'admin_utils/date_picker_utils.dart';
-import 'admin_utils/image_picker_utils.dart';
-import 'admin_utils/location_utils.dart';
+import 'admin_utils/authUtils.dart';
+import 'admin_utils/datePicker.dart';
+import 'admin_utils/imagePicker.dart';
+import 'admin_utils/locationUtils.dart';
 import 'admin_shop.dart';
 
 class AdminPanel extends StatefulWidget {
@@ -578,23 +580,6 @@ class _AdminPanelState extends State<AdminPanel> {
     }
   }
 
-  Widget _buildMapSelector() {
-    return LocationUtils.buildMapSelector(
-      context: context,
-      selectedLocation: selectedLocation,
-      markers: markers,
-      onMapCreated: (GoogleMapController controller) {
-        mapController = controller;
-      },
-      onLocationSelected: (LatLng position) {
-        setState(() {
-          selectedLocation = position;
-          _updateMarker();
-        });
-      },
-    );
-  }
-
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -689,7 +674,19 @@ class _AdminPanelState extends State<AdminPanel> {
                           style: TextStyle(fontWeight: FontWeight.bold)),
                       Padding(
                         padding: const EdgeInsets.symmetric(vertical: 10),
-                        child: _buildMapSelector(),
+                        child: MapSelector(
+                          selectedLocation: selectedLocation,
+                          markers: markers,
+                          onMapCreated: (GoogleMapController controller) {
+                            mapController = controller;
+                          },
+                          onLocationSelected: (LatLng position) {
+                            setState(() {
+                              selectedLocation = position;
+                              _updateMarker();
+                            });
+                          },
+                        ),
                       ),
                       Vspace(15),
                       ImageUtils.buildImagePreview(
@@ -732,7 +729,7 @@ class _AdminPanelState extends State<AdminPanel> {
                               controller: maxParticipantsController,
                               decoration: InputDecoration(
                                 labelText: "Max",
-                                errorText: _validateMaxParticipants(
+                                errorText: validateMaxParticipants(
                                     maxParticipantsController.text),
                               ),
                               keyboardType: TextInputType.number,
@@ -889,25 +886,4 @@ class _AdminPanelState extends State<AdminPanel> {
       ),
     );
   }
-}
-
-String? _validateMaxParticipants(String? value) {
-  if (value == null || value.isEmpty) {
-    return 'Cannot be empty';
-  }
-
-  int? parsedValue = int.tryParse(value);
-  if (parsedValue == null) {
-    return 'Invalid number';
-  }
-
-  if (parsedValue < 1) {
-    return 'Min 1';
-  }
-
-  if (parsedValue > 500) {
-    return 'Max 500';
-  }
-
-  return null;
 }

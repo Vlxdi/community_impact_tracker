@@ -1,6 +1,6 @@
 import 'dart:io';
 import 'package:community_impact_tracker/main_pages/profile/my_events_archive.dart';
-import 'package:community_impact_tracker/utils/AddSpace.dart';
+import 'package:community_impact_tracker/utils/addSpace.dart';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:firebase_auth/firebase_auth.dart';

@@ -2,7 +2,7 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:firebase_storage/firebase_storage.dart';
-import 'package:community_impact_tracker/utils/AddSpace.dart'; // Add this import
+import 'package:community_impact_tracker/utils/addSpace.dart'; // Add this import
 
 class ImageUtils {
   static final ImagePicker _imagePicker = ImagePicker();

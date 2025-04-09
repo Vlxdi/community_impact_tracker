@@ -1,6 +1,6 @@
-import 'package:community_impact_tracker/outer_pages/admin_utils/auth_utils.dart';
-import 'package:community_impact_tracker/utils/AddSpace.dart';
-import 'package:community_impact_tracker/utils/No_leading_zero.dart';
+import 'package:community_impact_tracker/outer_pages/admin_utils/authUtils.dart';
+import 'package:community_impact_tracker/utils/addSpace.dart';
+import 'package:community_impact_tracker/utils/noLeadingZero.dart';
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_storage/firebase_storage.dart';

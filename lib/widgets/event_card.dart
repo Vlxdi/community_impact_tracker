@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'package:community_impact_tracker/services/firebase_service.dart';
-import 'package:community_impact_tracker/utils/AddSpace.dart';
+import 'package:community_impact_tracker/utils/addSpace.dart';
+import 'package:community_impact_tracker/utils/getStatusColor.dart';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
@@ -62,26 +63,6 @@ class _EventCardState extends State<EventCard> {
       ),
     };
     _startTimer();
-  }
-
-  Color getStatusColor(String status) {
-    switch (status.toLowerCase()) {
-      case 'soon':
-        return Colors.grey[300]!;
-      case 'awaiting':
-        return Colors.blue;
-      case 'active':
-        return Colors.green;
-      case 'ended':
-        return Colors.orange;
-      case 'overdue':
-        return Colors.red;
-      case 'absent':
-      case 'participated':
-        return Colors.grey[800]!;
-      default:
-        return Colors.transparent;
-    }
   }
 
   void _startTimer() {

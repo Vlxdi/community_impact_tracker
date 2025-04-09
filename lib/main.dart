@@ -1,4 +1,4 @@
-import 'package:community_impact_tracker/main_pages/events_page.dart';
+import 'package:community_impact_tracker/main_pages/events/events_page.dart';
 import 'package:community_impact_tracker/main_pages/leaderboard/leaderboard_page.dart';
 import 'package:community_impact_tracker/main_pages/shop/cart_provider.dart';
 import 'package:community_impact_tracker/main_pages/shop/shop_page.dart';
