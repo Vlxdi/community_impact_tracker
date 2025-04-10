@@ -7,6 +7,12 @@ import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:community_impact_tracker/outer_pages/admin_utils/maxParticipantsValidations.dart';
 import 'package:community_impact_tracker/outer_pages/admin_utils/mapSelector.dart';
+import 'package:qr_flutter/qr_flutter.dart';
+import 'package:path_provider/path_provider.dart';
+import 'package:file_picker/file_picker.dart';
+import 'dart:io';
+import 'dart:ui' as ui;
+import 'dart:convert';
 
 import 'admin_utils/authUtils.dart';
 import 'admin_utils/datePicker.dart';
@@ -251,22 +257,24 @@ class _AdminPanelState extends State<AdminPanel> {
       final DocumentReference eventRef = _firestore.collection('events').doc();
       final String eventId = eventRef.id;
 
+      // Generate a secure token for check-in
+      final String checkinToken = _generateSecureToken();
+
       final Map<String, dynamic> eventData = {
-        'eventId': _isEditing ? _editingEventId : eventRef.id,
+        'eventId': eventId,
         'name': nameController.text,
         'description': descriptionController.text,
         'startTime': Timestamp.fromDate(finalStartTime),
         'endTime': Timestamp.fromDate(finalEndTime),
         'rewardPoints': int.parse(rewardPointsController.text),
-        'createdDate':
-            _isEditing ? null : Timestamp.now(), // Only set for new events
-        'status': _isEditing ? null : 'soon', // Only set for new events
+        'createdDate': Timestamp.now(),
+        'status': 'soon',
         'maxParticipants': int.parse(maxParticipantsController.text),
         'currentParticipants': currentParticipants,
+        'checkin_token': checkinToken, // Add the secure token
       };
 
       if (selectedLocation != null) {
-        // Location is now optional
         eventData['location'] = GeoPoint(
           selectedLocation!.latitude,
           selectedLocation!.longitude,
@@ -279,6 +287,9 @@ class _AdminPanelState extends State<AdminPanel> {
 
       await eventRef.set(eventData);
 
+      // Generate and display the QR code
+      _showQRCodePopup(eventId, checkinToken);
+
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text("Event Created Successfully!")),
       );
@@ -287,6 +298,125 @@ class _AdminPanelState extends State<AdminPanel> {
     } catch (e) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text("Error: $e")),
+      );
+    }
+  }
+
+  String _generateSecureToken() {
+    return DateTime.now().millisecondsSinceEpoch.toString() +
+        "_" +
+        UniqueKey().toString();
+  }
+
+  void _showQRCodePopup(String eventId, String checkinToken) {
+    final qrData = checkinToken; // Only include the check-in token value
+
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Text("Event QR Code"),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            SizedBox(
+              width: 200.0,
+              height: 200.0,
+              child: QrImageView(
+                data: qrData, // Use the check-in token value as QR code data
+                version: QrVersions.auto,
+                size: 200.0,
+              ),
+            ),
+            SizedBox(height: 10),
+            Text(
+              "Here is your event QR code",
+              style: TextStyle(fontWeight: FontWeight.bold),
+            ),
+            SizedBox(height: 5),
+            Text(
+              "Show this QR code to the participants at the end of the event, so they can check in!",
+              textAlign: TextAlign.center,
+            ),
+            SizedBox(height: 10),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                TextButton(
+                  onPressed: () => Navigator.of(context).pop(),
+                  child: Text("Close"),
+                ),
+                SizedBox(width: 10),
+                IconButton(
+                  onPressed: () => _downloadQRCode(qrData),
+                  icon: Icon(Icons.download),
+                  tooltip: "Download QR Code",
+                ),
+              ],
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(),
+            child: Text("Close"),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Future<void> _downloadQRCode(String qrData) async {
+    try {
+      final qrValidationResult = QrValidator.validate(
+        data: qrData, // Use the check-in token value as QR code data
+        version: QrVersions.auto,
+        errorCorrectionLevel: QrErrorCorrectLevel.L,
+      );
+
+      if (qrValidationResult.status == QrValidationStatus.valid) {
+        final qrCode = qrValidationResult.qrCode!;
+        final painter = QrPainter.withQr(
+          qr: qrCode,
+          color: const Color(0xFF000000),
+          emptyColor: const Color(0xFFFFFFFF),
+          gapless: true,
+        );
+
+        // Prompt the user to select a location to save the file
+        String? selectedPath = await FilePicker.platform.saveFile(
+          dialogTitle: 'Save QR Code',
+          fileName: 'event_qr_code.png',
+          type: FileType.custom,
+          allowedExtensions: ['png'],
+        );
+
+        if (selectedPath == null) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text("Save operation canceled.")),
+          );
+          return;
+        }
+
+        final pictureRecorder = ui.PictureRecorder();
+        final canvas = Canvas(pictureRecorder);
+        final size = 200.0;
+        final paintSize = Size(size, size);
+
+        painter.paint(canvas, paintSize);
+        final picture = pictureRecorder.endRecording();
+        final image = await picture.toImage(size.toInt(), size.toInt());
+        final byteData = await image.toByteData(format: ui.ImageByteFormat.png);
+
+        final file = File(selectedPath);
+        await file.writeAsBytes(byteData!.buffer.asUint8List());
+
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text("QR Code saved to $selectedPath")),
+        );
+      }
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text("Error saving QR Code: $e")),
       );
     }
   }

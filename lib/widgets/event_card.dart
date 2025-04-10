@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:convert';
 import 'package:community_impact_tracker/services/firebase_service.dart';
 import 'package:community_impact_tracker/utils/addSpace.dart';
 import 'package:community_impact_tracker/utils/getStatusColor.dart';
@@ -6,6 +7,7 @@ import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:mobile_scanner/mobile_scanner.dart';
 
 class EventCard extends StatefulWidget {
   final String name;
@@ -52,6 +54,9 @@ class _EventCardState extends State<EventCard> {
   Timer? _timer;
   Duration _timeRemaining = Duration.zero;
 
+  // Define the check-in token as a variable to be fetched from Firebase
+  String? checkinToken;
+
   @override
   void initState() {
     super.initState();
@@ -62,7 +67,26 @@ class _EventCardState extends State<EventCard> {
         infoWindow: InfoWindow(title: widget.name),
       ),
     };
+    _fetchCheckinToken(); // Fetch the check-in token from Firebase
     _startTimer();
+  }
+
+  Future<void> _fetchCheckinToken() async {
+    try {
+      final token = await FirebaseFirestore.instance
+          .collection('events')
+          .doc(widget.eventId)
+          .get()
+          .then((doc) => doc.data()?['checkin_token'] as String?);
+
+      if (mounted) {
+        setState(() {
+          checkinToken = token;
+        });
+      }
+    } catch (e) {
+      print("Error fetching check-in token: $e");
+    }
   }
 
   void _startTimer() {
@@ -249,7 +273,7 @@ class _EventCardState extends State<EventCard> {
                                 Text("Ends: ${formatDate(widget.endTime)}"),
                               ],
                             ),
-                          Text("Reward: ${widget.rewardPoints}⭐"),
+                          Text("Reward: ${widget.rewardPoints.ceil()}⭐"),
                           Vspace(8),
                           ElevatedButton(
                             onPressed: () {
@@ -490,30 +514,135 @@ class _EventCardState extends State<EventCard> {
   }
 
   void _showEventCheckInDialog(BuildContext context, String eventId) {
-    showDialog(
-      context: context,
-      builder: (BuildContext context) {
-        return AlertDialog(
-          title: Text('Are you ready to check in?'),
-          actions: <Widget>[
+    Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (context) => Scaffold(
+          appBar: AppBar(
+            title: Text("Scan QR Code"),
+          ),
+          body: Stack(
+            children: [
+              MobileScanner(
+                onDetect: (capture) async {
+                  final List<Barcode> barcodes = capture.barcodes;
+
+                  if (barcodes.isNotEmpty) {
+                    final String? scannedCode = barcodes.first.rawValue;
+
+                    if (scannedCode == null) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(
+                            content: Text(
+                                "Failed to scan QR code. Please try again.")),
+                      );
+                      return;
+                    }
+
+                    // Close the scanner screen immediately after scanning
+                    Navigator.of(context).pop();
+
+                    try {
+                      // Validate the scanned QR code value against the check-in token
+                      if (scannedCode == checkinToken) {
+                        // Handle successful match
+                        await _handleSuccessfulMatch(context, eventId);
+                      } else {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(
+                              content: Text(
+                                  "Invalid QR code for this event. Please check the code and try again.")),
+                        );
+                      }
+                    } catch (e) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(
+                            content: Text(
+                                "Error processing QR code: ${e.toString()}")),
+                      );
+                      print("QR Code Error: $e"); // Log the error for debugging
+                    }
+                  } else {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(
+                          content:
+                              Text("No QR code detected. Please try again.")),
+                    );
+                  }
+                },
+              ),
+              Center(
+                child: Container(
+                  width: 250,
+                  height: 250,
+                  decoration: BoxDecoration(
+                    border: Border.all(color: Colors.green, width: 4),
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                ),
+              ),
+              Align(
+                alignment: Alignment.bottomCenter,
+                child: Padding(
+                  padding: const EdgeInsets.all(16.0),
+                  child: Text(
+                    "Align the QR code within the box to scan",
+                    style: TextStyle(color: Colors.white, fontSize: 16),
+                    textAlign: TextAlign.center,
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+// Separate function to handle the async operations
+  Future<void> _handleSuccessfulMatch(
+      BuildContext context, String eventId) async {
+    try {
+      await _firebaseService.checkInForEvent(eventId);
+
+      // Check if widget is still mounted before accessing context
+      if (!mounted) return;
+
+      // Show success popup
+      showDialog(
+        context: context,
+        barrierDismissible: false,
+        builder: (context) => AlertDialog(
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(
+                Icons.check_circle,
+                color: Colors.green,
+                size: 80,
+              ),
+              SizedBox(height: 16),
+              Text(
+                "Successfully checked in",
+                style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                textAlign: TextAlign.center,
+              ),
+            ],
+          ),
+          actions: [
             TextButton(
-              onPressed: () async {
-                try {
-                  await _firebaseService.checkInForEvent(eventId);
-                  Navigator.of(context)
-                      .pop(); // Close the dialog after successful check-in
-                } catch (e) {
-                  // Handle error (you can show a message to the user here)
-                  print('Error: $e');
-                  Navigator.of(context)
-                      .pop(); // Close the dialog even if there's an error
-                }
-              },
-              child: Text('Check In'),
+              onPressed: () => Navigator.of(context).pop(),
+              child: Text("Close"),
             ),
           ],
-        );
-      },
-    );
+        ),
+      );
+    } catch (e) {
+      // Check if widget is still mounted before accessing context
+      if (!mounted) return;
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text("Error during check-in: $e")),
+      );
+    }
   }
 }

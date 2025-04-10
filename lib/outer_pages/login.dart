@@ -7,6 +7,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:geocoding/geocoding.dart';
+import 'package:flutter/services.dart';
 
 class LoginPage extends StatefulWidget {
   const LoginPage({super.key});
@@ -292,9 +293,14 @@ class _LoginPageState extends State<LoginPage> {
                               hintText: 'Username',
                               border: InputBorder.none,
                             ),
+                            inputFormatters: [
+                              FilteringTextInputFormatter.deny(RegExp(
+                                  r'^\s+|\s+$')), // Disallow leading/trailing spaces
+                            ],
                             onChanged: (value) {
                               setState(() {
-                                _username = value;
+                                _username =
+                                    value; // Allow copying but sanitize input
                               });
                             },
                           ),
@@ -343,9 +349,13 @@ class _LoginPageState extends State<LoginPage> {
                         hintText: 'Email',
                         border: InputBorder.none,
                       ),
+                      inputFormatters: [
+                        FilteringTextInputFormatter.deny(RegExp(
+                            r'^\s+|\s+$')), // Disallow leading/trailing spaces
+                      ],
                       onChanged: (value) {
                         setState(() {
-                          _email = value;
+                          _email = value; // Allow copying but sanitize input
                         });
                       },
                     ),
@@ -356,9 +366,13 @@ class _LoginPageState extends State<LoginPage> {
                         border: InputBorder.none,
                       ),
                       obscureText: true,
+                      inputFormatters: [
+                        FilteringTextInputFormatter.deny(RegExp(
+                            r'^\s+|\s+$')), // Disallow leading/trailing spaces
+                      ],
                       onChanged: (value) {
                         setState(() {
-                          _password = value;
+                          _password = value; // Allow copying but sanitize input
                         });
                       },
                     ),

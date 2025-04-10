@@ -8,3 +8,5 @@ import 'package:geolocator/geolocator.dart';
 class EventService {
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
 }
+
+//add event services here...
