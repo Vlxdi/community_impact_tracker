@@ -1,13 +1,18 @@
 import 'package:community_impact_tracker/main_pages/settings/account_settings.dart';
 import 'package:community_impact_tracker/outer_pages/login.dart';
+import 'package:community_impact_tracker/theme/theme.dart';
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:provider/provider.dart';
+import 'package:community_impact_tracker/theme/theme_provider.dart';
 
 class SettingsPage extends StatelessWidget {
   const SettingsPage({super.key});
 
   @override
   Widget build(BuildContext context) {
+    final themeProvider = Provider.of<ThemeProvider>(context);
+
     return Scaffold(
       appBar: AppBar(
         title: const Text('Settings'),
@@ -41,9 +46,9 @@ class SettingsPage extends StatelessWidget {
           SwitchListTile(
             title: const Text('Dark Mode'),
             subtitle: const Text('Use dark theme'),
-            value: false,
+            value: themeProvider.themeData == darkMode,
             onChanged: (bool value) {
-              // Handle dark mode toggle
+              themeProvider.toggleTheme();
             },
           ),
           ListTile(

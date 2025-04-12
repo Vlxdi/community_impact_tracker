@@ -11,7 +11,7 @@ import '../../widgets/event_card.dart';
 import 'package:community_impact_tracker/utils/buildListTile.dart';
 import 'package:community_impact_tracker/services/location_service.dart';
 import 'package:community_impact_tracker/utils/eventFilters.dart';
-import 'package:community_impact_tracker/widgets/buildEventCard.dart';
+import 'package:community_impact_tracker/widgets/build_event_card.dart';
 
 class EventsPage extends StatefulWidget {
   const EventsPage({super.key});

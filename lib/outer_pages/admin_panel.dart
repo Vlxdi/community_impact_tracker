@@ -318,6 +318,11 @@ class _AdminPanelState extends State<AdminPanel> {
         content: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
+            Text(
+              "Show this QR code to the participants at the end of the event, so they can check in!",
+              textAlign: TextAlign.center,
+            ),
+            Vspace(10),
             SizedBox(
               width: 200.0,
               height: 200.0,
@@ -327,38 +332,23 @@ class _AdminPanelState extends State<AdminPanel> {
                 size: 200.0,
               ),
             ),
-            SizedBox(height: 10),
-            Text(
-              "Here is your event QR code",
-              style: TextStyle(fontWeight: FontWeight.bold),
-            ),
-            SizedBox(height: 5),
-            Text(
-              "Show this QR code to the participants at the end of the event, so they can check in!",
-              textAlign: TextAlign.center,
-            ),
-            SizedBox(height: 10),
-            Row(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                TextButton(
-                  onPressed: () => Navigator.of(context).pop(),
-                  child: Text("Close"),
-                ),
-                SizedBox(width: 10),
-                IconButton(
-                  onPressed: () => _downloadQRCode(qrData),
-                  icon: Icon(Icons.download),
-                  tooltip: "Download QR Code",
-                ),
-              ],
-            ),
+            Vspace(10),
           ],
         ),
         actions: [
-          TextButton(
-            onPressed: () => Navigator.of(context).pop(),
-            child: Text("Close"),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              TextButton.icon(
+                onPressed: () => _downloadQRCode(qrData),
+                icon: Icon(Icons.download),
+                label: Text("Download"),
+              ),
+              TextButton(
+                onPressed: () => Navigator.of(context).pop(),
+                child: Text("Close"),
+              ),
+            ],
           ),
         ],
       ),
@@ -853,6 +843,7 @@ class _AdminPanelState extends State<AdminPanel> {
                               },
                             ),
                           ),
+                          Hspace(60),
                           SizedBox(
                             width: 60,
                             child: TextField(

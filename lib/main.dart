@@ -11,6 +11,7 @@ import 'outer_pages/login.dart';
 import 'main_pages/profile/profile.dart';
 import 'firebase_options.dart';
 import 'outer_pages/admin_panel.dart';
+import 'package:community_impact_tracker/theme/theme_provider.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -26,8 +27,10 @@ void main() async {
     MultiProvider(
       providers: [
         ChangeNotifierProvider(create: (_) => CartProvider()),
+        ChangeNotifierProvider(
+            create: (_) => ThemeProvider()), // Add ThemeProvider
       ],
-      child: MyApp(),
+      child: const MyApp(),
     ),
   );
 }
@@ -37,8 +40,11 @@ class MyApp extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final themeProvider = Provider.of<ThemeProvider>(context);
+
     return MaterialApp(
       debugShowCheckedModeBanner: false,
+      theme: themeProvider.themeData, // Apply dynamic theme
       initialRoute: '/', // Default route when app starts
       routes: {
         '/': (context) => AuthenticationWrapper(), // Authentication check route

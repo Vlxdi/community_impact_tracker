@@ -310,124 +310,165 @@ class _AdminShopPageState extends State<AdminShopPage> {
       ),
       body: Padding(
         padding: const EdgeInsets.all(16.0),
-        child: Stack(
-          children: [
-            Column(
-              children: [
-                Expanded(
-                  flex: 3, // Increase the flex value for the main section
-                  child: Form(
-                    key: _formKey,
-                    child: ListView(
+        child: SingleChildScrollView(
+          child: Column(
+            children: [
+              Form(
+                key: _formKey,
+                child: Column(
+                  children: [
+                    TextFormField(
+                      controller: _nameController,
+                      decoration: InputDecoration(labelText: 'Product Name'),
+                      validator: (value) {
+                        if (value == null || value.isEmpty) {
+                          return 'Please enter a product name';
+                        }
+                        return null;
+                      },
+                    ),
+                    Vspace(16),
+                    TextFormField(
+                      controller: _descriptionController,
+                      decoration:
+                          InputDecoration(labelText: 'Product Description'),
+                      validator: (value) {
+                        if (value == null || value.isEmpty) {
+                          return 'Please enter a product description';
+                        }
+                        return null;
+                      },
+                    ),
+                    Vspace(16),
+                    Row(
                       children: [
-                        TextFormField(
-                          controller: _nameController,
-                          decoration:
-                              InputDecoration(labelText: 'Product Name'),
-                          validator: (value) {
-                            if (value == null || value.isEmpty) {
-                              return 'Please enter a product name';
-                            }
-                            return null;
-                          },
+                        Expanded(
+                          child: TextFormField(
+                            controller: _priceController,
+                            decoration:
+                                InputDecoration(labelText: 'Product Price'),
+                            keyboardType:
+                                TextInputType.numberWithOptions(decimal: true),
+                            inputFormatters: [
+                              FilteringTextInputFormatter.allow(
+                                  RegExp(r'^\d*\.?\d*')),
+                              NoLeadingZeroFormatter(),
+                            ],
+                            validator: (value) {
+                              if (value == null || value.isEmpty) {
+                                return 'Please enter a product price';
+                              }
+                              if (double.tryParse(value) == null) {
+                                return 'Please enter a valid number';
+                              }
+                              return null;
+                            },
+                          ),
                         ),
-                        Vspace(16),
-                        TextFormField(
-                          controller: _descriptionController,
-                          decoration:
-                              InputDecoration(labelText: 'Product Description'),
-                          validator: (value) {
-                            if (value == null || value.isEmpty) {
-                              return 'Please enter a product description';
-                            }
-                            return null;
-                          },
-                        ),
-                        Vspace(16),
-                        TextFormField(
-                          controller: _priceController,
-                          decoration:
-                              InputDecoration(labelText: 'Product Price'),
-                          keyboardType:
-                              TextInputType.numberWithOptions(decimal: true),
-                          inputFormatters: [
-                            FilteringTextInputFormatter.allow(RegExp(
-                                r'^\d*\.?\d*')), // Allow numbers with optional decimal
-                            NoLeadingZeroFormatter(), // Prevents leading zero
-                          ],
-                          validator: (value) {
-                            if (value == null || value.isEmpty) {
-                              return 'Please enter a product price';
-                            }
-                            if (double.tryParse(value) == null) {
-                              return 'Please enter a valid number';
-                            }
-                            return null;
-                          },
-                        ),
-                        Vspace(16),
-                        _imageUrl == null
-                            ? TextButton.icon(
-                                onPressed: _pickImage,
-                                icon: Icon(Icons.image),
-                                label: Text('Pick Image'),
-                              )
-                            : Column(
-                                children: [
-                                  Image.network(_imageUrl!),
-                                  TextButton(
-                                    onPressed: _pickImage,
-                                    child: Text('Change Image'),
-                                  ),
-                                ],
-                              ),
-                        Vspace(16),
-                        ElevatedButton(
-                          onPressed: _submitForm,
-                          child: Text('Add Product'),
+                        Hspace(16),
+                        TextButton.icon(
+                          onPressed: _pickImage,
+                          icon: Icon(Icons.image),
+                          label: Text(_imageUrl == null
+                              ? 'Pick Image'
+                              : 'Change Image'),
                         ),
                       ],
                     ),
-                  ),
-                ),
-                Vspace(16),
-                Divider(),
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    Text(
-                      'Existing Products',
-                      style:
-                          TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
-                      textAlign: TextAlign.center,
-                    ),
-                    IconButton(
-                      icon: Icon(
-                        _isBatchDeleteMode
-                            ? Icons.close
-                            : Icons.select_all_rounded,
-                        color: Colors.blue,
+                    Vspace(16),
+                    Container(
+                      height: 200,
+                      width: double.infinity,
+                      decoration: BoxDecoration(
+                        border: Border.all(color: Colors.grey),
+                        borderRadius: BorderRadius.circular(8),
                       ),
-                      onPressed: _toggleBatchDeleteMode,
+                      child: _imageUrl != null
+                          ? ClipRRect(
+                              borderRadius: BorderRadius.circular(8),
+                              child: Image.network(
+                                _imageUrl!,
+                                fit: BoxFit.cover,
+                              ),
+                            )
+                          : Center(
+                              child: Text(
+                                'No Image Selected',
+                                style: TextStyle(color: Colors.grey),
+                              ),
+                            ),
+                    ),
+                    Vspace(16),
+                    if (_imageUrl != null)
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          TextButton(
+                            onPressed: () {
+                              setState(() {
+                                _imageUrl = null;
+                              });
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                SnackBar(content: Text('Image removed.')),
+                              );
+                            },
+                            child: Row(
+                              children: [
+                                Icon(Icons.delete, color: Colors.red),
+                                Hspace(4),
+                                Text('Remove Image'),
+                              ],
+                            ),
+                          ),
+                        ],
+                      ),
+                    Vspace(16),
+                    ElevatedButton(
+                      onPressed: _submitForm,
+                      child: Text('Add Product'),
                     ),
                   ],
                 ),
-                Expanded(
-                  flex: 2, // Decrease the flex value for the products section
-                  child: StreamBuilder<QuerySnapshot>(
-                    stream: _firestore.collection('products').snapshots(),
-                    builder: (context, snapshot) {
-                      if (snapshot.connectionState == ConnectionState.waiting) {
-                        return Center(child: CircularProgressIndicator());
-                      }
-                      if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
-                        return Center(child: Text('No products found.'));
-                      }
-                      return ListView(
-                        children: snapshot.data!.docs.map((doc) {
-                          final productData =
-                              doc.data() as Map<String, dynamic>;
-                          final productId = doc.id;
+              ),
+              Vspace(16),
+              Divider(),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Text(
+                    'Existing Products',
+                    style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                    textAlign: TextAlign.center,
+                  ),
+                  IconButton(
+                    icon: Icon(
+                      _isBatchDeleteMode
+                          ? Icons.close
+                          : Icons.select_all_rounded,
+                      color: Colors.blue,
+                    ),
+                    onPressed: _toggleBatchDeleteMode,
+                  ),
+                ],
+              ),
+              Vspace(5),
+              StreamBuilder<QuerySnapshot>(
+                stream: _firestore.collection('products').snapshots(),
+                builder: (context, snapshot) {
+                  if (!snapshot.hasData) {
+                    return Center(child: CircularProgressIndicator());
+                  }
+                  final products = snapshot.data!.docs;
+                  return Stack(
+                    children: [
+                      ListView.builder(
+                        shrinkWrap: true,
+                        physics: NeverScrollableScrollPhysics(),
+                        itemCount: products.length,
+                        itemBuilder: (context, index) {
+                          var productData =
+                              products[index].data() as Map<String, dynamic>;
+                          var productId = products[index].id;
                           return ListTile(
                             leading: _isBatchDeleteMode
                                 ? Checkbox(
@@ -438,12 +479,22 @@ class _AdminShopPageState extends State<AdminShopPage> {
                                     },
                                   )
                                 : (productData['image'] != null
-                                    ? Image.network(productData['image'],
-                                        width: 50)
-                                    : Icon(Icons.image)),
+                                    ? ClipRRect(
+                                        borderRadius: BorderRadius.circular(8),
+                                        child: Image.network(
+                                          productData['image'],
+                                          width: 50,
+                                          height: 50,
+                                          fit: BoxFit.cover,
+                                        ),
+                                      )
+                                    : Icon(Icons.image_not_supported)),
                             title: Text(productData['name']),
                             subtitle: Text(
-                                '\$${productData['price'].toStringAsFixed(2)}'),
+                              '\$${productData['price'].toStringAsFixed(2)}',
+                              maxLines: 2,
+                              overflow: TextOverflow.ellipsis,
+                            ),
                             trailing: !_isBatchDeleteMode
                                 ? Row(
                                     mainAxisSize: MainAxisSize.min,
@@ -453,7 +504,6 @@ class _AdminShopPageState extends State<AdminShopPage> {
                                         onPressed: () => _editProduct(
                                             productId, productData),
                                       ),
-                                      Hspace(8),
                                       IconButton(
                                         icon: Icon(Icons.delete),
                                         onPressed: () =>
@@ -463,27 +513,27 @@ class _AdminShopPageState extends State<AdminShopPage> {
                                   )
                                 : null,
                           );
-                        }).toList(),
-                      );
-                    },
-                  ),
-                ),
-              ],
-            ),
-            if (_isBatchDeleteMode && _selectedProductIds.isNotEmpty)
-              Positioned(
-                bottom: 16,
-                right: 16,
-                child: FloatingActionButton(
-                  onPressed: _batchDeleteProducts,
-                  child: Icon(
-                    Icons.delete,
-                    color: Colors.red,
-                  ),
-                  tooltip: "Delete Selected Products",
-                ),
+                        },
+                      ),
+                      if (_isBatchDeleteMode && _selectedProductIds.isNotEmpty)
+                        Positioned(
+                          bottom: 16,
+                          right: 16,
+                          child: FloatingActionButton(
+                            onPressed: _batchDeleteProducts,
+                            child: Icon(
+                              Icons.delete,
+                              color: Colors.red,
+                            ),
+                            tooltip: "Delete Selected Products",
+                          ),
+                        ),
+                    ],
+                  );
+                },
               ),
-          ],
+            ],
+          ),
         ),
       ),
     );

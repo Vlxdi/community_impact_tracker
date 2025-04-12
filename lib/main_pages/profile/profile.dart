@@ -1,11 +1,8 @@
-import 'dart:io';
 import 'package:community_impact_tracker/main_pages/profile/my_events_archive.dart';
+import 'package:community_impact_tracker/main_pages/profile/user_data_provider.dart';
 import 'package:community_impact_tracker/utils/addSpace.dart';
 import 'package:flutter/material.dart';
-import 'package:image_picker/image_picker.dart';
-import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:firebase_storage/firebase_storage.dart';
 import '../../widgets/achievement.dart';
 import '../../widgets/badge.dart';
 import '../settings/settings.dart';
@@ -17,249 +14,31 @@ class ProfilePage extends StatefulWidget {
   _ProfilePageState createState() => _ProfilePageState();
 }
 
-final List<int> levelThresholds = [
-  0,
-  50,
-  120,
-  210,
-  320,
-  450,
-  600,
-  770,
-  960,
-  1170,
-  1400,
-  1650,
-  1920,
-  2210,
-  2520,
-  2850,
-  3200,
-  3570,
-  3960,
-  4370,
-  4800,
-  5250,
-  5720,
-  6210,
-  6720,
-  7250,
-  7800,
-  8370,
-  8960,
-  10000
-];
-
-int getUserLevel(int totalPoints) {
-  for (int i = levelThresholds.length - 1; i >= 0; i--) {
-    if (totalPoints >= levelThresholds[i]) {
-      return i + 1;
-    }
-  }
-  return 1;
-}
-
 class _ProfilePageState extends State<ProfilePage> {
-  final FirebaseAuth _auth = FirebaseAuth.instance;
-  final FirebaseStorage _storage =
-      FirebaseStorage.instance; // Add storage instance
-  final FirebaseFirestore _firestore =
-      FirebaseFirestore.instance; // Add firestore instance
-  final ImagePicker _picker = ImagePicker();
+  final ProfileController _controller = ProfileController();
   ImageProvider<Object>? _profileImage;
   String _username = "Loading...";
-  bool _uploading = false; // Add uploading state
-  double _totalPoints = 0.0; // Change type to double
+  bool _uploading = false;
+  double _totalPoints = 0.0;
 
   @override
   void initState() {
     super.initState();
-    _fetchUsername();
-    _loadProfileImage();
-    _fetchTotalPoints(); // Fetch total points on initialization
+    _initializeProfileData();
   }
 
-  Future<void> _fetchUsername() async {
-    final user = _auth.currentUser;
-    if (user != null) {
-      try {
-        final userDoc = await FirebaseFirestore.instance
-            .collection('users')
-            .doc(user.uid)
-            .get();
+  Future<void> _initializeProfileData() async {
+    // Fetch initial data
+    String username = await _controller.fetchUsername();
+    double points = await _controller.fetchTotalPoints();
+    ImageProvider<Object>? profileImage = await _controller.loadProfileImage();
 
-        if (userDoc.exists) {
-          setState(() {
-            _username = userDoc.data()?['username'] ?? 'New User';
-          });
-        } else {
-          setState(() {
-            _username = 'New User';
-          });
-        }
-      } catch (e) {
-        print("Failed to fetch username: $e");
-        WidgetsBinding.instance.addPostFrameCallback((_) {
-          setState(() {
-            _username = 'Offline';
-          });
-        });
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Unable to fetch profile information')),
-        );
-      }
-    }
-  }
-
-  Future<void> _fetchTotalPoints() async {
-    final user = _auth.currentUser;
-    if (user != null) {
-      try {
-        final userDoc =
-            await _firestore.collection('users').doc(user.uid).get();
-        if (userDoc.exists) {
-          setState(() {
-            _totalPoints = (userDoc.data()?['total_points'] ?? 0.0)
-                .toDouble(); // Ensure double
-          });
-
-          // Calculate the user's level
-          int userLevel = getUserLevel(
-              _totalPoints.toInt()); // Convert to int for level calculation
-
-          // Update the user's level in the database
-          await _firestore.collection('users').doc(user.uid).update({
-            'level': userLevel,
-          });
-        }
-      } catch (e) {
-        print("Failed to fetch total points: $e");
-      }
-    }
-  }
-
-  Future<void> _loadProfileImage() async {
-    final user = _auth.currentUser;
-    if (user != null) {
-      try {
-        final storageRef = _storage.ref().child(
-            'profile_pictures/${user.uid}/${user.uid}.jpg'); // User-specific folder
-        final imageUrl = await storageRef.getDownloadURL();
-        setState(() {
-          _profileImage = NetworkImage(imageUrl);
-        });
-      } catch (e) {
-        if (e is FirebaseException && e.code == 'object-not-found') {
-          print("No profile picture found for user ${user.uid}");
-        } else {
-          print("Failed to load profile image: $e");
-        }
-      }
-    }
-  }
-
-  Future<void> _pickImage() async {
-    final user = _auth.currentUser;
-    if (user == null) {
-      print("User is NULL! Not logged in."); // Important check
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-            content:
-                Text('You must be logged in to upload a profile picture.')),
-      );
-      return;
-    }
-
-    print("Current User UID: ${user.uid}"); // Print the UID
-
-    final pickedFile = await _picker.pickImage(source: ImageSource.gallery);
-    if (pickedFile == null) {
-      print("No image selected");
-      return;
-    }
-
-    final file = File(pickedFile.path);
-
+    // Update state with fetched data
     setState(() {
-      _uploading = true; // Set uploading to true
+      _username = username;
+      _totalPoints = points;
+      _profileImage = profileImage;
     });
-
-    try {
-      final storageRef =
-          _storage.ref().child('profile_pictures/${user.uid}/${user.uid}.jpg');
-      print("Uploading to path: ${storageRef.fullPath}"); // Print the full path
-
-      final uploadTask = storageRef.putFile(file);
-
-      // Add a listener to the upload task for progress updates (optional):
-      uploadTask.snapshotEvents.listen((TaskSnapshot snapshot) {
-        if (snapshot.state == TaskState.running) {
-          double progress = snapshot.bytesTransferred / snapshot.totalBytes;
-          print("Upload Progress: ${progress * 100}%");
-          // You can use this progress to update a progress bar in your UI
-        }
-      });
-
-      await uploadTask.whenComplete(() async {
-        final imageUrl = await storageRef.getDownloadURL();
-
-        await FirebaseFirestore.instance
-            .collection('users')
-            .doc(user.uid)
-            .update({
-          'profile_picture': imageUrl,
-        });
-
-        print("Profile picture URL stored in Firestore: $imageUrl");
-        await _loadProfileImage();
-      });
-    } catch (e) {
-      print("Failed to upload image: $e");
-
-      setState(() {
-        _uploading = false; // Set uploading to false even on error
-      });
-
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-            content: Text(
-                'Failed to upload profile picture: $e')), // Show the actual error
-      );
-    }
-  }
-
-  Widget _fetchWalletBalance() {
-    return StreamBuilder<DocumentSnapshot>(
-      stream: FirebaseFirestore.instance
-          .collection('users')
-          .doc(FirebaseAuth.instance.currentUser!.uid)
-          .snapshots(),
-      builder: (context, snapshot) {
-        if (snapshot.connectionState == ConnectionState.waiting) {
-          return const CircularProgressIndicator();
-        }
-
-        if (!snapshot.hasData ||
-            snapshot.data == null ||
-            !snapshot.data!.exists) {
-          return const Text("Wallet Balance: 0.00",
-              style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold));
-        }
-
-        double walletBalance = (snapshot.data!.get('wallet_balance') ?? 0.0)
-            .toDouble(); // Ensure double
-
-        return Row(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            const Icon(Icons.account_balance_wallet_rounded, size: 30),
-            Text("Wallet Balance: ${walletBalance.toStringAsFixed(2)}",
-                style:
-                    const TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
-          ],
-        );
-      },
-    );
   }
 
   void _showProfilePictureDialog() {
@@ -281,7 +60,7 @@ class _ProfilePageState extends State<ProfilePage> {
               child: const Text("Change it"),
               onPressed: () {
                 Navigator.of(context).pop();
-                _pickImage();
+                _updateProfilePicture();
               },
             ),
           ],
@@ -290,21 +69,44 @@ class _ProfilePageState extends State<ProfilePage> {
     );
   }
 
+  Future<void> _updateProfilePicture() async {
+    setState(() {
+      _uploading = true;
+    });
+
+    try {
+      bool success = await _controller.pickImage(context);
+      if (success) {
+        ImageProvider<Object>? newImage = await _controller.loadProfileImage();
+        setState(() {
+          _profileImage = newImage;
+        });
+      }
+    } finally {
+      setState(() {
+        _uploading = false;
+      });
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: Text("Profile"),
+        title: const Text("Profile"),
         actions: [
           IconButton(
-            icon: Icon(Icons.settings),
+            icon: const Icon(Icons.settings),
             onPressed: () async {
               bool? shouldRefresh = await Navigator.push(
                 context,
                 MaterialPageRoute(builder: (context) => SettingsPage()),
               );
               if (shouldRefresh == true) {
-                _fetchUsername();
+                String username = await _controller.fetchUsername();
+                setState(() {
+                  _username = username;
+                });
               }
             },
           ),
@@ -325,7 +127,7 @@ class _ProfilePageState extends State<ProfilePage> {
                         radius: 50,
                         backgroundImage: _profileImage,
                         child: _profileImage == null
-                            ? Icon(Icons.person_2_rounded,
+                            ? const Icon(Icons.person_2_rounded,
                                 size: 70, color: Colors.grey)
                             : null,
                       ),
@@ -335,29 +137,34 @@ class _ProfilePageState extends State<ProfilePage> {
                         width: 25,
                         height: 25,
                         child: Container(
-                          padding: EdgeInsets.all(4),
-                          decoration: BoxDecoration(
+                          padding: const EdgeInsets.all(4),
+                          decoration: const BoxDecoration(
                             color: Colors.grey,
                             shape: BoxShape.circle,
                           ),
-                          child: Icon(
+                          child: const Icon(
                             Icons.cameraswitch_rounded,
                             size: 15,
                           ),
                         ),
                       ),
+                      if (_uploading)
+                        const Positioned.fill(
+                          child: CircularProgressIndicator(),
+                        ),
                     ],
                   ),
                 ),
               ),
-              Vspace(10),
+              const Vspace(10),
               Center(
                 child: Text(
                   _username,
-                  style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+                  style: const TextStyle(
+                      fontSize: 20, fontWeight: FontWeight.bold),
                 ),
               ),
-              Vspace(10),
+              const Vspace(10),
               // User level and wallet balance
               Center(
                 child: Column(
@@ -365,49 +172,83 @@ class _ProfilePageState extends State<ProfilePage> {
                     Row(
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
-                        Icon(Icons.keyboard_double_arrow_up_rounded,
+                        const Icon(Icons.keyboard_double_arrow_up_rounded,
                             color: Colors.green, size: 30),
                         Text(
-                          "Level ${getUserLevel(_totalPoints.toInt())}", // Use fetched total points
-                          style: TextStyle(
+                          "Level ${getUserLevel(_totalPoints.toInt())}",
+                          style: const TextStyle(
                               fontSize: 18, fontWeight: FontWeight.bold),
                         ),
                       ],
                     ),
-                    Vspace(5),
-                    _fetchWalletBalance(),
+                    const Vspace(5),
+                    StreamBuilder<DocumentSnapshot>(
+                      stream: _controller.fetchWalletBalance(),
+                      builder: (context, snapshot) {
+                        if (snapshot.connectionState ==
+                            ConnectionState.waiting) {
+                          return const CircularProgressIndicator();
+                        }
+
+                        if (!snapshot.hasData ||
+                            snapshot.data == null ||
+                            !snapshot.data!.exists) {
+                          return const Text("Wallet Balance: 0.00",
+                              style: TextStyle(
+                                  fontSize: 18, fontWeight: FontWeight.bold));
+                        }
+
+                        double walletBalance =
+                            (snapshot.data!.get('wallet_balance') ?? 0.0)
+                                .toDouble();
+
+                        return Row(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            const Icon(Icons.account_balance_wallet_rounded,
+                                size: 30),
+                            Text(
+                                "Wallet Balance: ${walletBalance.toStringAsFixed(2)}",
+                                style: const TextStyle(
+                                    fontSize: 18, fontWeight: FontWeight.bold)),
+                          ],
+                        );
+                      },
+                    ),
                   ],
                 ),
               ),
-              Vspace(30),
+              const Vspace(30),
               Center(
                 child: ElevatedButton.icon(
                   onPressed: () {
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                        builder: (context) => MyEventsArchive(
-                            userId: FirebaseAuth.instance.currentUser!.uid),
-                      ),
-                    );
+                    String? userId = _controller.getCurrentUserId();
+                    if (userId != null) {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (context) => MyEventsArchive(userId: userId),
+                        ),
+                      );
+                    }
                   },
-                  icon: Icon(Icons.event_note),
-                  label: Text("My Events Archive"),
+                  icon: const Icon(Icons.event_note),
+                  label: const Text("My Events Archive"),
                 ),
               ),
-              Vspace(30),
+              const Vspace(30),
 
               // Badges section
-              Text("Badges",
+              const Text("Badges",
                   style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
-              Vspace(10),
+              const Vspace(10),
               SizedBox(
                 height: 100,
                 child: SingleChildScrollView(
                   scrollDirection: Axis.horizontal,
                   child: Wrap(
                     spacing: 8.0,
-                    children: <Widget>[
+                    children: const <Widget>[
                       BadgeWidget(badgeName: "Community Star"),
                       BadgeWidget(badgeName: "Volunteer Leader"),
                       BadgeWidget(badgeName: "Helping Hand"),
@@ -417,15 +258,15 @@ class _ProfilePageState extends State<ProfilePage> {
                 ),
               ),
 
-              Vspace(10),
+              const Vspace(10),
 
               // Achievements section
-              Text("Achievements",
+              const Text("Achievements",
                   style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
-              Vspace(10),
+              const Vspace(10),
               SingleChildScrollView(
                 child: Column(
-                  children: [
+                  children: const [
                     AchievementWidget(achievementName: "Completed 5 Events"),
                     AchievementWidget(achievementName: "100 Hours of Service"),
                     AchievementWidget(

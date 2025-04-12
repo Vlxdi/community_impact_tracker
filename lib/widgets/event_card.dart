@@ -22,7 +22,7 @@ class EventCard extends StatefulWidget {
   final double rewardPoints;
   final int maxParticipants;
   final String status;
-  final int currentParticipants; // New field added
+  final int currentParticipants;
   final VoidCallback onSignIn;
 
   const EventCard({
@@ -53,8 +53,6 @@ class _EventCardState extends State<EventCard> {
   final FirebaseService _firebaseService = FirebaseService();
   Timer? _timer;
   Duration _timeRemaining = Duration.zero;
-
-  // Define the check-in token as a variable to be fetched from Firebase
   String? checkinToken;
 
   @override
