@@ -4,6 +4,7 @@ import 'package:image_picker/image_picker.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_storage/firebase_storage.dart';
+import 'package:image_cropper/image_cropper.dart';
 
 // Level thresholds list moved from profile.dart
 final List<int> levelThresholds = [
@@ -53,6 +54,8 @@ class ProfileController {
   final FirebaseStorage _storage = FirebaseStorage.instance;
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
   final ImagePicker _picker = ImagePicker();
+
+  File? _previewFile;
 
   // Constructor
   ProfileController();
@@ -127,7 +130,57 @@ class ProfileController {
     return null;
   }
 
-  Future<bool> pickImage(BuildContext context) async {
+  Future<File?> cropImage(String imagePath) async {
+    if (Platform.isAndroid || Platform.isIOS) {
+      final croppedFile = await ImageCropper().cropImage(
+        sourcePath: imagePath,
+        uiSettings: [
+          AndroidUiSettings(
+            toolbarTitle: 'Crop Image',
+            toolbarColor: Colors.blue,
+            toolbarWidgetColor: Colors.white,
+            initAspectRatio: CropAspectRatioPreset.original,
+            lockAspectRatio: false,
+            aspectRatioPresets: [
+              CropAspectRatioPreset.square,
+              CropAspectRatioPreset.ratio3x2,
+              CropAspectRatioPreset.original,
+              CropAspectRatioPreset.ratio4x3,
+              CropAspectRatioPreset.ratio16x9,
+            ],
+          ),
+          IOSUiSettings(
+            title: 'Crop Image',
+            minimumAspectRatio: 1.0,
+          ),
+        ],
+      );
+
+      if (croppedFile != null) {
+        return File(croppedFile.path);
+      }
+    }
+
+    return null; // Cropping not supported or cancelled
+  }
+
+  Future<bool> cropPreviewImage() async {
+    if (_previewFile == null) {
+      print("No preview file to crop.");
+      return false;
+    }
+
+    final cropped = await cropImage(_previewFile!.path);
+    if (cropped != null) {
+      _previewFile = cropped;
+      return true;
+    }
+
+    return false;
+  }
+
+  Future<bool> pickImage(BuildContext context,
+      {bool previewMode = false}) async {
     final user = _auth.currentUser;
     if (user == null) {
       print("User is NULL! Not logged in.");
@@ -147,14 +200,75 @@ class ProfileController {
       return false;
     }
 
-    final file = File(pickedFile.path);
+    File imageFile = File(pickedFile.path);
+
+    final croppedImage = await cropImage(pickedFile.path);
+    if (croppedImage != null) {
+      imageFile = croppedImage;
+    } else if (Platform.isAndroid || Platform.isIOS) {
+      print("Image cropping canceled");
+      return false;
+    }
+
+    if (previewMode) {
+      _previewFile = imageFile;
+      return true;
+    }
 
     try {
       final storageRef =
           _storage.ref().child('profile_pictures/${user.uid}/${user.uid}.jpg');
       print("Uploading to path: ${storageRef.fullPath}");
 
-      final uploadTask = storageRef.putFile(file);
+      final uploadTask = storageRef.putFile(imageFile);
+
+      uploadTask.snapshotEvents.listen((TaskSnapshot snapshot) {
+        if (snapshot.state == TaskState.running) {
+          double progress = snapshot.bytesTransferred / snapshot.totalBytes;
+          print("Upload Progress: ${progress * 100}%");
+        }
+      });
+
+      await uploadTask.whenComplete(() async {
+        final imageUrl = await storageRef.getDownloadURL();
+        await _firestore.collection('users').doc(user.uid).update({
+          'profile_picture': imageUrl,
+        });
+        print("Profile picture URL stored in Firestore: $imageUrl");
+      });
+
+      return true;
+    } catch (e) {
+      print("Failed to upload image: $e");
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Failed to upload profile picture: $e')),
+      );
+
+      return false;
+    }
+  }
+
+  Future<ImageProvider<Object>?> loadPreviewImage() async {
+    if (_previewFile != null) {
+      return FileImage(_previewFile!);
+    }
+    return null;
+  }
+
+  Future<bool> finalizeImageUpload(BuildContext context) async {
+    final user = _auth.currentUser;
+    if (user == null || _previewFile == null) {
+      print("No user or preview file available for upload.");
+      return false;
+    }
+
+    try {
+      final storageRef =
+          _storage.ref().child('profile_pictures/${user.uid}/${user.uid}.jpg');
+      print("Uploading to path: ${storageRef.fullPath}");
+
+      final uploadTask = storageRef.putFile(_previewFile!);
 
       uploadTask.snapshotEvents.listen((TaskSnapshot snapshot) {
         if (snapshot.state == TaskState.running) {
@@ -173,6 +287,7 @@ class ProfileController {
         print("Profile picture URL stored in Firestore: $imageUrl");
       });
 
+      _previewFile = null;
       return true;
     } catch (e) {
       print("Failed to upload image: $e");

@@ -1,6 +1,7 @@
 import 'package:community_impact_tracker/main_pages/settings/account_settings.dart';
 import 'package:community_impact_tracker/outer_pages/login.dart';
 import 'package:community_impact_tracker/theme/theme.dart';
+import 'package:community_impact_tracker/widgets/q_warning.dart';
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:provider/provider.dart';
@@ -43,13 +44,18 @@ class SettingsPage extends StatelessWidget {
               // Handle notification toggle
             },
           ),
-          SwitchListTile(
-            title: const Text('Dark Mode'),
-            subtitle: const Text('Use dark theme'),
-            value: themeProvider.themeData == darkMode,
-            onChanged: (bool value) {
-              themeProvider.toggleTheme();
-            },
+          QWarning(
+            title: 'Experimental',
+            subtitle:
+                'This feature is currently under development and might not work as expected.',
+            child: SwitchListTile(
+              title: const Text('Dark Mode'),
+              subtitle: const Text('Use dark theme'),
+              value: themeProvider.themeData == darkMode,
+              onChanged: (bool value) {
+                themeProvider.toggleTheme();
+              },
+            ),
           ),
           ListTile(
             leading: const Icon(Icons.lock),

@@ -41,29 +41,107 @@ class _ProfilePageState extends State<ProfilePage> {
     });
   }
 
-  void _showProfilePictureDialog() {
+  void _showProfilePictureDialog() async {
+    ImageProvider<Object>? previewImage =
+        _profileImage; // Default to current profile image
+
+    // Allow user to pick an image for preview
+    bool success = await _controller.pickImage(context, previewMode: true);
+    if (success) {
+      previewImage = await _controller.loadPreviewImage();
+    }
+
     showDialog(
       context: context,
       builder: (BuildContext context) {
-        return AlertDialog(
-          title: const Text("Change picture?"),
-          content: const Text(
-              "Do you want to change your profile picture or leave it as is?"),
-          actions: [
-            TextButton(
-              child: const Text("Leave it"),
-              onPressed: () {
-                Navigator.of(context).pop();
-              },
-            ),
-            TextButton(
-              child: const Text("Change it"),
-              onPressed: () {
-                Navigator.of(context).pop();
-                _updateProfilePicture();
-              },
-            ),
-          ],
+        return StatefulBuilder(
+          builder: (context, setState) {
+            return AlertDialog(
+              title: const Center(child: Text("Change picture?")),
+              content: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  if (previewImage != null)
+                    CircleAvatar(
+                      radius: 50,
+                      backgroundImage: previewImage,
+                      child: previewImage == null
+                          ? const Icon(Icons.person_2_rounded,
+                              size: 70, color: Colors.grey)
+                          : null,
+                    ),
+                  Vspace(10),
+                  Text(
+                    _username,
+                    style: const TextStyle(
+                        fontSize: 16, fontWeight: FontWeight.bold),
+                  ),
+                  Vspace(10),
+                  const Text(
+                      "Do you want to change your profile picture or leave it as is?"),
+                ],
+              ),
+              actions: [
+                Row(
+                  spacing: 2,
+                  mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                  children: [
+                    IconButton(
+                      icon: const Icon(Icons.swap_horiz),
+                      onPressed: () async {
+                        bool newSuccess = await _controller.pickImage(context,
+                            previewMode: true);
+                        if (newSuccess) {
+                          ImageProvider<Object>? newPreviewImage =
+                              await _controller.loadPreviewImage();
+                          setState(() {
+                            previewImage = newPreviewImage;
+                          });
+                        } else {
+                          setState(() {
+                            previewImage =
+                                _profileImage; // Reset to current profile image
+                          });
+                        }
+                      },
+                    ),
+                    //add an icon button to crop the image
+                    IconButton(
+                      icon: const Icon(Icons.crop),
+                      onPressed: () async {
+                        bool newSuccess = await _controller.cropPreviewImage();
+                        if (newSuccess) {
+                          ImageProvider<Object>? newPreviewImage =
+                              await _controller.loadPreviewImage();
+                          setState(() {
+                            previewImage = newPreviewImage;
+                          });
+                        } else {
+                          setState(() {
+                            previewImage = _profileImage;
+                          });
+                        }
+                      },
+                    ),
+
+                    TextButton(
+                      child: const Text("Leave it"),
+                      onPressed: () {
+                        Navigator.of(context).pop();
+                      },
+                    ),
+                    TextButton(
+                      child: const Text("Change it"),
+                      onPressed: () {
+                        Navigator.of(context).pop();
+                        _updateProfilePicture();
+                      },
+                    ),
+                  ],
+                ),
+              ],
+            );
+          },
         );
       },
     );
@@ -75,7 +153,8 @@ class _ProfilePageState extends State<ProfilePage> {
     });
 
     try {
-      bool success = await _controller.pickImage(context);
+      // Finalize the image upload
+      bool success = await _controller.finalizeImageUpload(context);
       if (success) {
         ImageProvider<Object>? newImage = await _controller.loadProfileImage();
         setState(() {

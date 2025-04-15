@@ -195,10 +195,17 @@ class _LeaderboardPageState extends State<LeaderboardPage> {
                                 style: TextStyle(fontWeight: FontWeight.bold)),
                             SizedBox(width: 8),
                             CircleAvatar(
-                              backgroundImage: entry['profile_picture'] != null
-                                  ? NetworkImage(entry['profile_picture'])
-                                  : null,
-                              child: entry['profile_picture'] == null
+                              backgroundImage:
+                                  (entry['profile_picture'] != null &&
+                                          entry['profile_picture']
+                                              .toString()
+                                              .isNotEmpty)
+                                      ? NetworkImage(entry['profile_picture'])
+                                      : null,
+                              child: (entry['profile_picture'] == null ||
+                                      entry['profile_picture']
+                                          .toString()
+                                          .isEmpty)
                                   ? Icon(Icons.person, color: Colors.grey)
                                   : null,
                             ),
