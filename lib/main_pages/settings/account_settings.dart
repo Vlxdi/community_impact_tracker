@@ -119,6 +119,7 @@ class _AccountSettingsPageState extends State<AccountSettingsPage> {
     return Scaffold(
       appBar: AppBar(
         title: const Text('Account Settings'),
+        centerTitle: true,
       ),
       body: Padding(
         padding: const EdgeInsets.all(16.0),

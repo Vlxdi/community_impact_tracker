@@ -61,6 +61,7 @@ class MyEventsArchive extends StatelessWidget {
     return Scaffold(
       appBar: AppBar(
         title: const Text('My Events Archive'),
+        centerTitle: true,
       ),
       body: FutureBuilder<List<Map<String, dynamic>>>(
         future: _fetchArchivedEvents(),

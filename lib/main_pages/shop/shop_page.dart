@@ -1,5 +1,6 @@
 import 'package:community_impact_tracker/main_pages/shop/cart_page.dart';
 import 'package:community_impact_tracker/main_pages/shop/cart_provider.dart';
+import 'package:community_impact_tracker/main_pages/shop/favorite_products.dart';
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:provider/provider.dart';
@@ -16,7 +17,18 @@ class ShopPage extends StatelessWidget {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: Text('Shop'),
+        title: Center(
+          child: Text('Shop'),
+        ),
+        leading: IconButton(
+          icon: Icon(Icons.favorite),
+          onPressed: () {
+            Navigator.push(
+              context,
+              MaterialPageRoute(builder: (context) => FavoriteProductsPage()),
+            );
+          },
+        ),
         actions: [
           IconButton(
             icon: Icon(Icons.shopping_cart_rounded),

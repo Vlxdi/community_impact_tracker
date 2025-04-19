@@ -1,5 +1,6 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:community_impact_tracker/main_pages/events/events_calendar.dart';
+import 'package:community_impact_tracker/main_pages/notifications/notifications_panel.dart';
 import 'package:community_impact_tracker/services/firebase_service.dart';
 import 'package:community_impact_tracker/utils/addSpace.dart';
 import 'package:firebase_auth/firebase_auth.dart' show FirebaseAuth, User;
@@ -557,7 +558,14 @@ class _EventsPageState extends State<EventsPage> {
                     ),
                     child: IconButton(
                       icon: Icon(Icons.notifications),
-                      onPressed: () {},
+                      onPressed: () {
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (context) => NotificationsPanel(),
+                          ),
+                        );
+                      },
                     ),
                   ),
                 ],
