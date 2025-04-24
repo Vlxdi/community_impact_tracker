@@ -5,17 +5,19 @@
 The Community Impact Tracker is a mobile (on the go) app designed to track and encourage community service efforts. Users can log their hours, complete tasks, earn points, and exchange them for rewards. It's built to motivate individuals to get involved in their community by adding a competitive, rewarding, and fun element to giving back.
 
 ## Features
-1. **Log Community Service**: Users can record service hours with details about the activity.
+1. **Community Log**: Status based event system, Maps API, Time tracking and details.
 
 2. **Earn Points**: Users accumulate points based on difficulty and the number of hours worked.
 
-3. **Verification**: Multiple verification methods, including event host confirmation, photo proof, QR code check-ins, and peer verification.
+3. **Verification**: Unique, one time, in app generated QR codes for checking-in and verifying attendance.
 
 4. **Digital Wallet**: Points are stored in a user’s digital wallet, which they can use to redeem rewards in the shop.
 
-5. **Badges & Leaderboards**: Users can earn badges for achievements and see how they stack up against others on the leaderboard.
+5. **Leaderboad and Levels**: Users can level up and gain rewards points by participating in events which puts them higher up in the leaderboard.
 
-6. **Reward Shop**: Redeem points for cool rewards based on service impact.
+6. **Badges & Achievements**: Users can earn badges for achievements and see how they stack up against others on the leaderboard.
+
+7. **Reward Shop**: Redeem points for cool rewards based on service impact.
 
 
 ## Tech Stack
