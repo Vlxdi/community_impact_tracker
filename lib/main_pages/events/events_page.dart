@@ -9,7 +9,7 @@ import 'dart:async';
 import 'package:intl/intl.dart';
 import 'package:geolocator/geolocator.dart'; // Add this import for location services
 import '../../widgets/event_card.dart';
-import 'package:community_impact_tracker/utils/buildListTile.dart';
+import 'package:community_impact_tracker/widgets/build_list_tile.dart';
 import 'package:community_impact_tracker/services/location_service.dart';
 import 'package:community_impact_tracker/utils/eventFilters.dart';
 import 'package:community_impact_tracker/widgets/build_event_card.dart';

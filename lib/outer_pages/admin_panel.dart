@@ -18,7 +18,7 @@ import 'admin_utils/authUtils.dart';
 import 'admin_utils/datePicker.dart';
 import 'admin_utils/imagePicker.dart';
 import 'admin_utils/locationUtils.dart';
-import 'admin_shop.dart';
+import 'admin_shop_panel.dart';
 
 class AdminPanel extends StatefulWidget {
   const AdminPanel({super.key});

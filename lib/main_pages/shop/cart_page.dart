@@ -131,7 +131,7 @@ class CartPage extends StatelessWidget {
                         ));
                       }
                     },
-                    child: Text('Purchase'),
+                    child: Text('Redeem'),
                   ),
                 ),
             ],
