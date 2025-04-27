@@ -131,37 +131,38 @@ class ProfileController {
   }
 
   Future<File?> cropImage(String imagePath) async {
-    if (Platform.isAndroid || Platform.isIOS) {
-      final croppedFile = await ImageCropper().cropImage(
-        sourcePath: imagePath,
-        uiSettings: [
-          AndroidUiSettings(
-            toolbarTitle: 'Crop Image',
-            toolbarColor: Colors.blue,
-            toolbarWidgetColor: Colors.white,
-            initAspectRatio: CropAspectRatioPreset.original,
-            lockAspectRatio: false,
-            aspectRatioPresets: [
-              CropAspectRatioPreset.square,
-              CropAspectRatioPreset.ratio3x2,
-              CropAspectRatioPreset.original,
-              CropAspectRatioPreset.ratio4x3,
-              CropAspectRatioPreset.ratio16x9,
-            ],
-          ),
-          IOSUiSettings(
-            title: 'Crop Image',
-            minimumAspectRatio: 1.0,
-          ),
-        ],
-      );
+    try {
+      if (Platform.isAndroid || Platform.isIOS) {
+        final croppedFile = await ImageCropper().cropImage(
+          sourcePath: imagePath,
+          uiSettings: [
+            AndroidUiSettings(
+              toolbarTitle: 'Crop Image',
+              toolbarColor: Colors.blue,
+              toolbarWidgetColor: Colors.white,
+              initAspectRatio: CropAspectRatioPreset.original,
+              lockAspectRatio: false,
+            ),
+            IOSUiSettings(
+              title: 'Crop Image',
+              minimumAspectRatio: 1.0,
+            ),
+          ],
+        );
 
-      if (croppedFile != null) {
-        return File(croppedFile.path);
+        if (croppedFile != null) {
+          return File(croppedFile.path);
+        } else {
+          print("Cropping canceled by user.");
+        }
+      } else {
+        print("Cropping not supported on this platform.");
       }
+    } catch (e) {
+      print("Error during cropping: $e");
     }
 
-    return null; // Cropping not supported or cancelled
+    return null; // Return null if cropping fails
   }
 
   Future<bool> cropPreviewImage() async {
@@ -201,14 +202,6 @@ class ProfileController {
     }
 
     File imageFile = File(pickedFile.path);
-
-    final croppedImage = await cropImage(pickedFile.path);
-    if (croppedImage != null) {
-      imageFile = croppedImage;
-    } else if (Platform.isAndroid || Platform.isIOS) {
-      print("Image cropping canceled");
-      return false;
-    }
 
     if (previewMode) {
       _previewFile = imageFile;

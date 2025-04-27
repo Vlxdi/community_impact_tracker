@@ -1,4 +1,5 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:community_impact_tracker/outer_pages/admin_shop_panel.dart';
 import 'package:community_impact_tracker/utils/addSpace.dart';
 import 'package:community_impact_tracker/utils/noLeadingZero.dart';
 import 'package:flutter/material.dart';
@@ -18,7 +19,6 @@ import 'admin_utils/authUtils.dart';
 import 'admin_utils/datePicker.dart';
 import 'admin_utils/imagePicker.dart';
 import 'admin_utils/locationUtils.dart';
-import 'admin_shop_panel.dart';
 
 class AdminPanel extends StatefulWidget {
   const AdminPanel({super.key});

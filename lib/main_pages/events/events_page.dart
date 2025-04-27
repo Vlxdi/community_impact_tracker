@@ -319,6 +319,15 @@ class _EventsPageState extends State<EventsPage> {
     List<Map<String, dynamic>> tempFiltered =
         applyFilter(events, selectedFilter, userLocation, now);
 
+    // Adjust filtering for "recently ended"
+    if (selectedFilter == 'recently ended') {
+      DateTime oneWeekAgo = now.subtract(Duration(days: 7));
+      tempFiltered = tempFiltered.where((event) {
+        DateTime endTime = event['endTime'];
+        return endTime.isAfter(oneWeekAgo) && endTime.isBefore(now);
+      }).toList();
+    }
+
     // Split into "Your Events" and "Other Events" for the ongoing filter
     if (selectedFilter == 'ongoing' || selectedFilter == 'upcoming') {
       signedUpEvents =

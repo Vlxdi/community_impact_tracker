@@ -512,6 +512,8 @@ class _EventCardState extends State<EventCard> {
   }
 
   void _showEventCheckInDialog(BuildContext context, String eventId) {
+    bool isProcessing = false; // Add a flag to prevent multiple triggers
+
     Navigator.of(context).push(
       MaterialPageRoute(
         builder: (context) => Scaffold(
@@ -522,6 +524,9 @@ class _EventCardState extends State<EventCard> {
             children: [
               MobileScanner(
                 onDetect: (capture) async {
+                  if (isProcessing) return; // Prevent multiple triggers
+                  isProcessing = true;
+
                   final List<Barcode> barcodes = capture.barcodes;
 
                   if (barcodes.isNotEmpty) {
@@ -533,16 +538,16 @@ class _EventCardState extends State<EventCard> {
                             content: Text(
                                 "Failed to scan QR code. Please try again.")),
                       );
+                      isProcessing = false; // Reset the flag
                       return;
                     }
-
-                    // Close the scanner screen immediately after scanning
-                    Navigator.of(context).pop();
 
                     try {
                       // Validate the scanned QR code value against the check-in token
                       if (scannedCode == checkinToken) {
                         // Handle successful match
+                        Navigator.of(context)
+                            .pop(); // Close the QR scanner screen
                         await _handleSuccessfulMatch(context, eventId);
                       } else {
                         ScaffoldMessenger.of(context).showSnackBar(
@@ -558,6 +563,8 @@ class _EventCardState extends State<EventCard> {
                                 "Error processing QR code: ${e.toString()}")),
                       );
                       print("QR Code Error: $e"); // Log the error for debugging
+                    } finally {
+                      isProcessing = false; // Reset the flag
                     }
                   } else {
                     ScaffoldMessenger.of(context).showSnackBar(
@@ -565,6 +572,7 @@ class _EventCardState extends State<EventCard> {
                           content:
                               Text("No QR code detected. Please try again.")),
                     );
+                    isProcessing = false; // Reset the flag
                   }
                 },
               ),
@@ -596,7 +604,6 @@ class _EventCardState extends State<EventCard> {
     );
   }
 
-// Separate function to handle the async operations
   Future<void> _handleSuccessfulMatch(
       BuildContext context, String eventId) async {
     try {
@@ -605,7 +612,7 @@ class _EventCardState extends State<EventCard> {
       // Check if widget is still mounted before accessing context
       if (!mounted) return;
 
-      // Show success popup
+      // Show success dialog on the event page
       showDialog(
         context: context,
         barrierDismissible: false,
@@ -620,7 +627,7 @@ class _EventCardState extends State<EventCard> {
               ),
               SizedBox(height: 16),
               Text(
-                "Successfully checked in",
+                "Successfully checked in!",
                 style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
                 textAlign: TextAlign.center,
               ),
