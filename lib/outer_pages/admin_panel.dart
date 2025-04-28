@@ -14,6 +14,7 @@ import 'package:file_picker/file_picker.dart';
 import 'dart:io';
 import 'dart:ui' as ui;
 import 'dart:convert';
+import 'package:saver_gallery/saver_gallery.dart';
 
 import 'admin_utils/authUtils.dart';
 import 'admin_utils/datePicker.dart';
@@ -372,21 +373,6 @@ class _AdminPanelState extends State<AdminPanel> {
           gapless: true,
         );
 
-        // Prompt the user to select a location to save the file
-        String? selectedPath = await FilePicker.platform.saveFile(
-          dialogTitle: 'Save QR Code',
-          fileName: 'event_qr_code.png',
-          type: FileType.custom,
-          allowedExtensions: ['png'],
-        );
-
-        if (selectedPath == null) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text("Save operation canceled.")),
-          );
-          return;
-        }
-
         final pictureRecorder = ui.PictureRecorder();
         final canvas = Canvas(pictureRecorder);
         final size = 200.0;
@@ -397,12 +383,25 @@ class _AdminPanelState extends State<AdminPanel> {
         final image = await picture.toImage(size.toInt(), size.toInt());
         final byteData = await image.toByteData(format: ui.ImageByteFormat.png);
 
-        final file = File(selectedPath);
-        await file.writeAsBytes(byteData!.buffer.asUint8List());
+        if (byteData == null) {
+          throw Exception("Failed to convert QR code to bytes.");
+        }
+
+        final imageBytes = byteData.buffer.asUint8List();
+
+        // Save the image to the gallery
+        await SaverGallery.saveImage(
+          imageBytes,
+          fileName: 'event_qr_code.png',
+          skipIfExists: false,
+        );
 
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text("QR Code saved to $selectedPath")),
+          SnackBar(content: Text("QR Code saved to gallery.")),
         );
+
+        // Close the dialog after saving
+        Navigator.of(context).pop();
       }
     } catch (e) {
       ScaffoldMessenger.of(context).showSnackBar(

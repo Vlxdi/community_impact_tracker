@@ -56,7 +56,7 @@ dependencies:
   image_cropper: ^9.1.0
   lottie: ^3.3.1
   flutter_launcher_icons: ^0.14.3
-  # image_gallery_saver: ^2.0.3
+  saver_gallery: ^4.0.1
   
   
 dev_dependencies:
