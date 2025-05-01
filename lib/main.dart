@@ -12,6 +12,7 @@ import 'main_pages/profile/profile.dart';
 import 'firebase_options.dart';
 import 'outer_pages/admin_panel.dart';
 import 'package:community_impact_tracker/theme/theme_provider.dart';
+import 'dart:ui';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -54,6 +55,45 @@ class MyApp extends StatelessWidget {
       },
     );
   }
+}
+
+class TransparentAppBar extends StatelessWidget implements PreferredSizeWidget {
+  final Widget title;
+  final List<Widget>? actions;
+  final Widget? leading;
+
+  const TransparentAppBar({
+    required this.title,
+    this.actions,
+    this.leading,
+    Key? key,
+  }) : super(key: key);
+
+  @override
+  Widget build(BuildContext context) {
+    return ClipRect(
+      child: BackdropFilter(
+        filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
+        child: AppBar(
+          centerTitle: true,
+          backgroundColor: Colors.transparent, // semi-transparent
+          shape: const RoundedRectangleBorder(
+            borderRadius: BorderRadius.only(
+              bottomLeft: Radius.circular(20),
+              bottomRight: Radius.circular(20),
+            ),
+          ),
+          elevation: 0,
+          title: title,
+          actions: actions,
+          leading: leading,
+        ),
+      ),
+    );
+  }
+
+  @override
+  Size get preferredSize => const Size.fromHeight(kToolbarHeight);
 }
 
 class AuthenticationWrapper extends StatelessWidget {

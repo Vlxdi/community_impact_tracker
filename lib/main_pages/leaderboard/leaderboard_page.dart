@@ -16,6 +16,7 @@ class _LeaderboardPageState extends State<LeaderboardPage> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
+        forceMaterialTransparency: true,
         title: Text('Leaderboard'),
         centerTitle: true,
       ),
@@ -64,79 +65,78 @@ class _LeaderboardPageState extends State<LeaderboardPage> {
                     ),
                   ),
                 ),
-                SizedBox(width: 8),
-                Padding(
-                  padding: const EdgeInsets.only(right: 16.0),
-                  child: GestureDetector(
-                    onTap: () {
-                      showModalBottomSheet(
-                        barrierColor: Colors.black.withOpacity(0.5),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.only(
-                            topLeft: Radius.circular(20),
-                            topRight: Radius.circular(20),
-                          ),
+                SizedBox(
+                    width:
+                        16), // Adjusted spacing between search and filter button
+                GestureDetector(
+                  onTap: () {
+                    showModalBottomSheet(
+                      barrierColor: Colors.black.withOpacity(0.5),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.only(
+                          topLeft: Radius.circular(20),
+                          topRight: Radius.circular(20),
                         ),
-                        context: context,
-                        builder: (context) {
-                          return Container(
-                            decoration: BoxDecoration(
-                              color: Colors.white,
-                              borderRadius: BorderRadius.only(
-                                topLeft: Radius.circular(20),
-                                topRight: Radius.circular(20),
-                              ),
+                      ),
+                      context: context,
+                      builder: (context) {
+                        return Container(
+                          decoration: BoxDecoration(
+                            color: Colors.white,
+                            borderRadius: BorderRadius.only(
+                              topLeft: Radius.circular(20),
+                              topRight: Radius.circular(20),
                             ),
-                            child: Column(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                _buildListTile(
-                                  icon: Icons.leaderboard,
-                                  title: 'Sort by Level',
-                                  isSelected: sortBy == 'level',
-                                  onTap: () {
-                                    setState(() {
-                                      sortBy = 'level';
-                                    });
-                                    Navigator.pop(context);
-                                  },
-                                  isTop: true,
-                                ),
-                                _buildListTile(
-                                  icon: Icons.star,
-                                  title: 'Sort by Points',
-                                  isSelected: sortBy == 'points',
-                                  onTap: () {
-                                    setState(() {
-                                      sortBy = 'points';
-                                    });
-                                    Navigator.pop(context);
-                                  },
-                                ),
-                              ],
-                            ),
-                          );
-                        },
-                      );
-                    },
-                    child: Container(
-                      padding: EdgeInsets.all(6),
-                      decoration: BoxDecoration(
-                        color: Colors.black.withOpacity(0.1),
-                        borderRadius: BorderRadius.circular(50),
-                        boxShadow: [
-                          BoxShadow(
-                            color: Colors.black.withOpacity(0.2),
-                            blurRadius: 4,
-                            offset: Offset(0, 2),
                           ),
-                        ],
-                      ),
-                      child: Icon(
-                        Icons.tune,
-                        color: Colors.black,
-                        size: 20,
-                      ),
+                          child: Column(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              _buildListTile(
+                                icon: Icons.leaderboard,
+                                title: 'Sort by Level',
+                                isSelected: sortBy == 'level',
+                                onTap: () {
+                                  setState(() {
+                                    sortBy = 'level';
+                                  });
+                                  Navigator.pop(context);
+                                },
+                                isTop: true,
+                              ),
+                              _buildListTile(
+                                icon: Icons.star,
+                                title: 'Sort by Points',
+                                isSelected: sortBy == 'points',
+                                onTap: () {
+                                  setState(() {
+                                    sortBy = 'points';
+                                  });
+                                  Navigator.pop(context);
+                                },
+                              ),
+                            ],
+                          ),
+                        );
+                      },
+                    );
+                  },
+                  child: Container(
+                    padding: EdgeInsets.all(6),
+                    decoration: BoxDecoration(
+                      color: Colors.black.withOpacity(0.1),
+                      borderRadius: BorderRadius.circular(50),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.black.withOpacity(0.2),
+                          blurRadius: 4,
+                          offset: Offset(0, 2),
+                        ),
+                      ],
+                    ),
+                    child: Icon(
+                      Icons.tune,
+                      color: Colors.black,
+                      size: 20,
                     ),
                   ),
                 ),

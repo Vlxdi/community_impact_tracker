@@ -5,6 +5,7 @@ import 'package:community_impact_tracker/services/firebase_service.dart';
 import 'package:community_impact_tracker/utils/addSpace.dart';
 import 'package:firebase_auth/firebase_auth.dart' show FirebaseAuth, User;
 import 'package:flutter/material.dart';
+import 'package:flutter_launcher_icons/xml_templates.dart';
 import 'dart:async';
 import 'package:intl/intl.dart';
 import 'package:geolocator/geolocator.dart'; // Add this import for location services
@@ -475,6 +476,7 @@ class _EventsPageState extends State<EventsPage> {
 
     return Scaffold(
       appBar: AppBar(
+        forceMaterialTransparency: true,
         centerTitle: true,
         title: RichText(
           text: TextSpan(

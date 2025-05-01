@@ -1,3 +1,4 @@
+import 'package:community_impact_tracker/main.dart';
 import 'package:community_impact_tracker/main_pages/profile/my_events_archive.dart';
 import 'package:community_impact_tracker/main_pages/profile/user_data_provider.dart';
 import 'package:community_impact_tracker/utils/addSpace.dart';
@@ -171,12 +172,26 @@ class _ProfilePageState extends State<ProfilePage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
+      extendBodyBehindAppBar: true,
+      appBar: TransparentAppBar(
         title: const Text("Profile"),
-        centerTitle: true,
+        leading: IconButton(
+          icon: const Icon(Icons.all_inbox_rounded),
+          onPressed: () {
+            String? userId = _controller.getCurrentUserId();
+            if (userId != null) {
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (context) => MyEventsArchive(userId: userId),
+                ),
+              );
+            }
+          },
+        ),
         actions: [
           IconButton(
-            icon: const Icon(Icons.settings),
+            icon: const Icon(Icons.settings_rounded),
             onPressed: () async {
               bool? shouldRefresh = await Navigator.push(
                 context,
@@ -192,169 +207,232 @@ class _ProfilePageState extends State<ProfilePage> {
           ),
         ],
       ),
-      body: SingleChildScrollView(
-        child: Padding(
-          padding: const EdgeInsets.all(16.0),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Center(
-                child: GestureDetector(
-                  onTap: _showProfilePictureDialog,
-                  child: Stack(
-                    children: [
-                      CircleAvatar(
-                        radius: 50,
-                        backgroundImage: _profileImage,
-                        child: _profileImage == null
-                            ? const Icon(Icons.person_2_rounded,
-                                size: 70, color: Colors.grey)
-                            : null,
-                      ),
-                      Positioned(
-                        bottom: 0,
-                        right: 0,
-                        width: 25,
-                        height: 25,
-                        child: Container(
-                          padding: const EdgeInsets.all(4),
-                          decoration: const BoxDecoration(
-                            color: Colors.grey,
-                            shape: BoxShape.circle,
-                          ),
-                          child: const Icon(
-                            Icons.cameraswitch_rounded,
-                            size: 15,
-                          ),
-                        ),
-                      ),
-                      if (_uploading)
-                        const Positioned.fill(
-                          child: CircularProgressIndicator(),
-                        ),
-                    ],
-                  ),
-                ),
-              ),
-              const Vspace(10),
-              Center(
-                child: Text(
-                  _username,
-                  style: const TextStyle(
-                      fontSize: 20, fontWeight: FontWeight.bold),
-                ),
-              ),
-              const Vspace(10),
-              // User level and wallet balance
-              Center(
-                child: Column(
-                  children: [
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.center,
+      body: Container(
+        child: SingleChildScrollView(
+          child: Padding(
+            padding: const EdgeInsets.all(16.0),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const SizedBox(height: kToolbarHeight + 16),
+                Center(
+                  child: GestureDetector(
+                    onTap: _showProfilePictureDialog,
+                    child: Stack(
                       children: [
-                        const Icon(Icons.keyboard_double_arrow_up_rounded,
-                            color: Colors.green, size: 30),
-                        Text(
-                          "Level ${getUserLevel(_totalPoints.toInt())}",
-                          style: const TextStyle(
-                              fontSize: 18, fontWeight: FontWeight.bold),
+                        CircleAvatar(
+                          radius: 50,
+                          backgroundImage: _profileImage,
+                          child: _profileImage == null
+                              ? const Icon(Icons.person_2_rounded,
+                                  size: 70, color: Colors.grey)
+                              : null,
                         ),
+                        Positioned(
+                          bottom: 0,
+                          right: 0,
+                          width: 25,
+                          height: 25,
+                          child: Container(
+                            padding: const EdgeInsets.all(4),
+                            decoration: const BoxDecoration(
+                              color: Colors.grey,
+                              shape: BoxShape.circle,
+                            ),
+                            child: const Icon(
+                              Icons.cameraswitch_rounded,
+                              size: 15,
+                            ),
+                          ),
+                        ),
+                        if (_uploading)
+                          const Positioned.fill(
+                            child: CircularProgressIndicator(),
+                          ),
                       ],
                     ),
-                    const Vspace(5),
-                    StreamBuilder<DocumentSnapshot>(
-                      stream: _controller.fetchWalletBalance(),
-                      builder: (context, snapshot) {
-                        if (snapshot.connectionState ==
-                            ConnectionState.waiting) {
-                          return const CircularProgressIndicator();
-                        }
-
-                        if (!snapshot.hasData ||
-                            snapshot.data == null ||
-                            !snapshot.data!.exists) {
-                          return const Text("Wallet Balance: 0.00",
-                              style: TextStyle(
-                                  fontSize: 18, fontWeight: FontWeight.bold));
-                        }
-
-                        double walletBalance =
-                            (snapshot.data!.get('wallet_balance') ?? 0.0)
-                                .toDouble();
-
-                        return Row(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            const Icon(Icons.account_balance_wallet_rounded,
-                                size: 30),
-                            Text(
-                                "Wallet Balance: ${walletBalance.toStringAsFixed(2)}",
-                                style: const TextStyle(
-                                    fontSize: 18, fontWeight: FontWeight.bold)),
-                          ],
-                        );
-                      },
-                    ),
-                  ],
+                  ),
                 ),
-              ),
-              const Vspace(30),
-              Center(
-                child: ElevatedButton.icon(
-                  onPressed: () {
-                    String? userId = _controller.getCurrentUserId();
-                    if (userId != null) {
-                      Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                          builder: (context) => MyEventsArchive(userId: userId),
+                const Vspace(10),
+                Center(
+                  child: Text(
+                    _username,
+                    style: const TextStyle(
+                        fontSize: 20, fontWeight: FontWeight.bold),
+                  ),
+                ),
+                const Vspace(10),
+                Center(
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Card(
+                        elevation: 2,
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12),
                         ),
-                      );
-                    }
-                  },
-                  icon: const Icon(Icons.event_note),
-                  label: const Text("My Events Archive"),
-                ),
-              ),
-              const Vspace(30),
+                        child: Container(
+                          width: 70,
+                          height: 70,
+                          decoration: BoxDecoration(
+                            borderRadius: BorderRadius.circular(12),
+                            gradient: const LinearGradient(
+                              colors: [
+                                Colors.green,
+                                Color.fromARGB(20, 50, 180, 50)
+                              ],
+                              begin: Alignment.topLeft,
+                              end: Alignment.bottomRight,
+                            ),
+                            border: Border.all(
+                              color: Colors.green,
+                              width: 2,
+                            ),
+                            boxShadow: [
+                              BoxShadow(
+                                color: Colors.green.withOpacity(0.5),
+                                blurRadius: 10,
+                                spreadRadius: 2,
+                                offset: const Offset(0, 0),
+                              ),
+                            ],
+                          ),
+                          child: Column(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              const Icon(Icons.keyboard_double_arrow_up_rounded,
+                                  color: Colors.white, size: 40),
+                              Text(
+                                "Level ${getUserLevel(_totalPoints.toInt())}",
+                                style: const TextStyle(
+                                    fontSize: 16,
+                                    fontWeight: FontWeight.bold,
+                                    color: Colors.white),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 10),
+                      Card(
+                        elevation: 2,
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        child: Container(
+                          width: 70,
+                          height: 70,
+                          decoration: BoxDecoration(
+                            borderRadius: BorderRadius.circular(12),
+                            gradient: const LinearGradient(
+                              colors: [
+                                Colors.lightBlue,
+                                Color.fromARGB(20, 50, 180, 255)
+                              ],
+                              begin: Alignment.topLeft,
+                              end: Alignment.bottomRight,
+                            ),
+                            border: Border.all(
+                              color: Colors.blue,
+                              width: 2,
+                            ),
+                            boxShadow: [
+                              BoxShadow(
+                                color: Colors.blue.withOpacity(0.5),
+                                blurRadius: 10,
+                                spreadRadius: 2,
+                                offset: const Offset(0, 0),
+                              ),
+                            ],
+                          ),
+                          child: StreamBuilder<DocumentSnapshot>(
+                            stream: _controller.fetchWalletBalance(),
+                            builder: (context, snapshot) {
+                              if (snapshot.connectionState ==
+                                  ConnectionState.waiting) {
+                                return const Center(
+                                    child: CircularProgressIndicator());
+                              }
 
-              // Badges section
-              const Text("Badges",
-                  style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
-              const Vspace(10),
-              SizedBox(
-                height: 100,
-                child: SingleChildScrollView(
-                  scrollDirection: Axis.horizontal,
-                  child: Wrap(
-                    spacing: 8.0,
-                    children: const <Widget>[
-                      BadgeWidget(badgeName: "Community Star"),
-                      BadgeWidget(badgeName: "Volunteer Leader"),
-                      BadgeWidget(badgeName: "Helping Hand"),
-                      BadgeWidget(badgeName: "Feedback Giver"),
+                              if (!snapshot.hasData ||
+                                  snapshot.data == null ||
+                                  !snapshot.data!.exists) {
+                                return const Center(
+                                  child: Text(
+                                    "0.00",
+                                    style: TextStyle(
+                                        fontSize: 16,
+                                        fontWeight: FontWeight.bold,
+                                        color: Colors.white),
+                                  ),
+                                );
+                              }
+
+                              double walletBalance =
+                                  (snapshot.data!.get('wallet_balance') ?? 0.0)
+                                      .toDouble();
+
+                              return Column(
+                                mainAxisAlignment: MainAxisAlignment.center,
+                                children: [
+                                  const Icon(
+                                      Icons.account_balance_wallet_rounded,
+                                      size: 40,
+                                      color: Colors.white),
+                                  Text(
+                                    walletBalance.toStringAsFixed(2),
+                                    style: const TextStyle(
+                                        fontSize: 16,
+                                        fontWeight: FontWeight.bold,
+                                        color: Colors.white),
+                                  ),
+                                ],
+                              );
+                            },
+                          ),
+                        ),
+                      ),
                     ],
                   ),
                 ),
-              ),
-
-              const Vspace(10),
-
-              // Achievements section
-              const Text("Achievements",
-                  style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
-              const Vspace(10),
-              SingleChildScrollView(
-                child: Column(
-                  children: const [
-                    AchievementWidget(achievementName: "Completed 5 Events"),
-                    AchievementWidget(achievementName: "100 Hours of Service"),
-                    AchievementWidget(
-                        achievementName: "Top Volunteer in March"),
-                  ],
+                const Vspace(30),
+                const Text("Badges",
+                    style:
+                        TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
+                const Vspace(10),
+                SizedBox(
+                  height: 100,
+                  child: SingleChildScrollView(
+                    scrollDirection: Axis.horizontal,
+                    child: Wrap(
+                      spacing: 8.0,
+                      children: const <Widget>[
+                        BadgeWidget(badgeName: "Community Star"),
+                        BadgeWidget(badgeName: "Volunteer Leader"),
+                        BadgeWidget(badgeName: "Helping Hand"),
+                        BadgeWidget(badgeName: "Feedback Giver"),
+                      ],
+                    ),
+                  ),
                 ),
-              ),
-            ],
+                const Vspace(10),
+                const Text("Achievements",
+                    style:
+                        TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
+                const Vspace(10),
+                SingleChildScrollView(
+                  child: Column(
+                    children: const [
+                      AchievementWidget(achievementName: "Completed 5 Events"),
+                      AchievementWidget(
+                          achievementName: "100 Hours of Service"),
+                      AchievementWidget(
+                          achievementName: "Top Volunteer in March"),
+                    ],
+                  ),
+                ),
+              ],
+            ),
           ),
         ),
       ),

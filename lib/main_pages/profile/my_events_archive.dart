@@ -1,4 +1,5 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:community_impact_tracker/main.dart';
 import 'package:flutter/material.dart';
 import '../../widgets/event_card.dart';
 
@@ -59,9 +60,10 @@ class MyEventsArchive extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
+      extendBodyBehindAppBar:
+          true, // Added this line to extend content behind app bar
+      appBar: TransparentAppBar(
         title: const Text('My Events Archive'),
-        centerTitle: true,
       ),
       body: FutureBuilder<List<Map<String, dynamic>>>(
         future: _fetchArchivedEvents(),
@@ -83,6 +85,8 @@ class MyEventsArchive extends StatelessWidget {
           }
 
           return ListView.builder(
+            // Added padding at the top to prevent content from clipping through app bar
+            padding: const EdgeInsets.fromLTRB(16, kToolbarHeight + 8, 16, 16),
             itemCount: archivedEvents.length,
             itemBuilder: (context, index) {
               final event = archivedEvents[index];
