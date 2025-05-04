@@ -4,6 +4,7 @@ import 'package:community_impact_tracker/main_pages/profile/user_data_provider.d
 import 'package:community_impact_tracker/utils/addSpace.dart';
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:lottie/lottie.dart';
 import '../../widgets/achievement.dart';
 import '../../widgets/badge.dart';
 import '../settings/settings.dart';
@@ -15,17 +16,32 @@ class ProfilePage extends StatefulWidget {
   _ProfilePageState createState() => _ProfilePageState();
 }
 
-class _ProfilePageState extends State<ProfilePage> {
+class _ProfilePageState extends State<ProfilePage>
+    with TickerProviderStateMixin {
   final ProfileController _controller = ProfileController();
   ImageProvider<Object>? _profileImage;
   String _username = "Loading...";
   bool _uploading = false;
   double _totalPoints = 0.0;
+  late AnimationController _settingsAnimationController;
+  late AnimationController _myEventsAnimationController; // Add this
 
   @override
   void initState() {
     super.initState();
+    _settingsAnimationController = AnimationController(vsync: this);
+    _myEventsAnimationController = AnimationController(
+      vsync: this,
+      duration: const Duration(seconds: 2), // Set a duration for the animation
+    ); // Remove the repeat call to prevent auto-play
     _initializeProfileData();
+  }
+
+  @override
+  void dispose() {
+    _settingsAnimationController.dispose();
+    _myEventsAnimationController.dispose(); // Dispose the new controller
+    super.dispose();
   }
 
   Future<void> _initializeProfileData() async {
@@ -176,14 +192,46 @@ class _ProfilePageState extends State<ProfilePage> {
       appBar: TransparentAppBar(
         title: const Text("Profile"),
         leading: IconButton(
-          icon: const Icon(Icons.all_inbox_rounded),
-          onPressed: () {
+          icon: SizedBox(
+            width: 30, // Match the size of the settings icon
+            height: 30,
+            child: Lottie.asset(
+              'assets/animations/appbar_icons/my_events_archive.json',
+              controller: _myEventsAnimationController,
+              onLoaded: (composition) {
+                _myEventsAnimationController.duration = composition.duration;
+              },
+              repeat: false, // Ensure the animation does not loop or auto-play
+            ),
+          ),
+          onPressed: () async {
+            _myEventsAnimationController.reset(); // Reset animation
+            _myEventsAnimationController.forward(
+                from: 0.2); // Start animation from 0.2
+            await Future.delayed(
+                const Duration(milliseconds: 500)); // Add delay
             String? userId = _controller.getCurrentUserId();
             if (userId != null) {
               Navigator.push(
                 context,
-                MaterialPageRoute(
-                  builder: (context) => MyEventsArchive(userId: userId),
+                PageRouteBuilder(
+                  pageBuilder: (context, animation, secondaryAnimation) =>
+                      MyEventsArchive(userId: userId),
+                  transitionsBuilder:
+                      (context, animation, secondaryAnimation, child) {
+                    const begin = Offset(-1.0, 0.0); // Slide from the left
+                    const end = Offset.zero;
+                    const curve = Curves.easeInOut;
+
+                    var tween = Tween(begin: begin, end: end)
+                        .chain(CurveTween(curve: curve));
+                    var offsetAnimation = animation.drive(tween);
+
+                    return SlideTransition(
+                      position: offsetAnimation,
+                      child: child,
+                    );
+                  },
                 ),
               );
             }
@@ -191,11 +239,42 @@ class _ProfilePageState extends State<ProfilePage> {
         ),
         actions: [
           IconButton(
-            icon: const Icon(Icons.settings_rounded),
+            icon: SizedBox(
+              width: 24, // Match the size of the previous icon
+              height: 24,
+              child: Lottie.asset(
+                'assets/animations/appbar_icons/settings.json',
+                controller: _settingsAnimationController,
+                onLoaded: (composition) {
+                  _settingsAnimationController.duration = composition.duration;
+                },
+              ),
+            ),
             onPressed: () async {
+              _settingsAnimationController.forward(from: 0);
+              await Future.delayed(
+                  const Duration(milliseconds: 500)); // Add delay
               bool? shouldRefresh = await Navigator.push(
                 context,
-                MaterialPageRoute(builder: (context) => SettingsPage()),
+                PageRouteBuilder(
+                  pageBuilder: (context, animation, secondaryAnimation) =>
+                      SettingsPage(),
+                  transitionsBuilder:
+                      (context, animation, secondaryAnimation, child) {
+                    const begin = Offset(1.0, 0.0); // Slide from the right
+                    const end = Offset.zero;
+                    const curve = Curves.easeInOut;
+
+                    var tween = Tween(begin: begin, end: end)
+                        .chain(CurveTween(curve: curve));
+                    var offsetAnimation = animation.drive(tween);
+
+                    return SlideTransition(
+                      position: offsetAnimation,
+                      child: child,
+                    );
+                  },
+                ),
               );
               if (shouldRefresh == true) {
                 String username = await _controller.fetchUsername();

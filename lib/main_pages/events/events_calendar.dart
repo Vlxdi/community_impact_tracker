@@ -15,6 +15,19 @@ class _EventsCalendarPageState extends State<EventsCalendarPage> {
   DateTime _focusedDay = DateTime.now();
   DateTime? _selectedDay;
 
+  final Map<int, Color> colorsets = {
+    1: const Color.fromARGB(20, 2, 179, 8),
+    2: const Color.fromARGB(40, 2, 179, 8),
+    3: const Color.fromARGB(60, 2, 179, 8),
+    4: const Color.fromARGB(80, 2, 179, 8),
+    5: const Color.fromARGB(100, 2, 179, 8),
+    6: const Color.fromARGB(120, 2, 179, 8),
+    7: const Color.fromARGB(150, 2, 179, 8),
+    8: const Color.fromARGB(180, 2, 179, 8),
+    9: const Color.fromARGB(220, 2, 179, 8),
+    10: const Color.fromARGB(255, 2, 179, 8),
+  };
+
   @override
   void initState() {
     super.initState();
@@ -63,6 +76,18 @@ class _EventsCalendarPageState extends State<EventsCalendarPage> {
     return eventsByDate[DateTime(day.year, day.month, day.day)] ?? [];
   }
 
+  Color _getDayColor(DateTime day) {
+    int eventCount = _getEventsForDay(day).length;
+    if (eventCount == 0) return Colors.transparent;
+    return colorsets[eventCount.clamp(1, 10)]!;
+  }
+
+  Color _getHeatmapColor(DateTime day) {
+    int eventCount = _getEventsForDay(day).length;
+    if (eventCount == 0) return Colors.transparent; // No events, no color
+    return colorsets[eventCount.clamp(1, 10)]!; // Clamp event count to 1-10
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -85,14 +110,91 @@ class _EventsCalendarPageState extends State<EventsCalendarPage> {
               });
             },
             calendarStyle: CalendarStyle(
+              defaultDecoration: BoxDecoration(
+                color: Colors.transparent, // Default no color
+                shape: BoxShape.rectangle,
+              ),
               todayDecoration: BoxDecoration(
-                color: Colors.green,
-                shape: BoxShape.circle,
+                color: _getHeatmapColor(_focusedDay), // Heatmap color for today
+                shape: BoxShape.rectangle,
+                borderRadius: BorderRadius.circular(8),
               ),
               selectedDecoration: BoxDecoration(
                 color: Colors.blue,
-                shape: BoxShape.circle,
+                shape: BoxShape.rectangle,
+                borderRadius: BorderRadius.circular(8),
               ),
+              outsideDecoration: BoxDecoration(
+                color: Colors.transparent,
+                shape: BoxShape.rectangle,
+              ),
+              disabledDecoration: BoxDecoration(
+                color: Colors.transparent,
+                shape: BoxShape.rectangle,
+              ),
+              holidayDecoration: BoxDecoration(
+                color: Colors.transparent,
+                shape: BoxShape.rectangle,
+              ),
+              weekendDecoration: BoxDecoration(
+                color: Colors.transparent,
+                shape: BoxShape.rectangle,
+              ),
+              markerDecoration: const BoxDecoration(), // Remove dots
+            ),
+            calendarBuilders: CalendarBuilders(
+              defaultBuilder: (context, day, focusedDay) {
+                return Container(
+                  decoration: BoxDecoration(
+                    color: _getHeatmapColor(day), // Heatmap color for each day
+                    shape: BoxShape.rectangle,
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  margin: const EdgeInsets.all(4.0),
+                  alignment: Alignment.center,
+                  child: Text(
+                    '${day.day}',
+                    style: const TextStyle(color: Colors.black),
+                  ),
+                );
+              },
+            ),
+          ),
+          const SizedBox(height: 8.0),
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16.0),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Row(
+                  children: [
+                    Container(
+                      width: 20,
+                      height: 20,
+                      decoration: BoxDecoration(
+                        color: colorsets[1],
+                        borderRadius: BorderRadius.circular(4),
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    const Text('Fewer events'),
+                  ],
+                ),
+                Row(
+                  children: [
+                    Container(
+                      width: 20,
+                      height: 20,
+                      decoration: BoxDecoration(
+                        color: colorsets[10],
+                        borderRadius: BorderRadius.circular(4),
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    const Text('More events'),
+                  ],
+                ),
+              ],
             ),
           ),
           const SizedBox(height: 8.0),

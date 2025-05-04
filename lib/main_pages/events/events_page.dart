@@ -9,6 +9,7 @@ import 'package:flutter_launcher_icons/xml_templates.dart';
 import 'dart:async';
 import 'package:intl/intl.dart';
 import 'package:geolocator/geolocator.dart'; // Add this import for location services
+import 'package:lottie/lottie.dart'; // Add this import for Lottie animations
 import '../../widgets/event_card.dart';
 import 'package:community_impact_tracker/widgets/build_list_tile.dart';
 import 'package:community_impact_tracker/services/location_service.dart';
@@ -22,7 +23,7 @@ class EventsPage extends StatefulWidget {
   _EventsPageState createState() => _EventsPageState();
 }
 
-class _EventsPageState extends State<EventsPage> {
+class _EventsPageState extends State<EventsPage> with TickerProviderStateMixin {
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
   late FirebaseService _firebaseService;
   final ScrollController _scrollController = ScrollController();
@@ -45,6 +46,10 @@ class _EventsPageState extends State<EventsPage> {
 
   // Add this line to make showSignedUpSection a class-level variable
   bool showSignedUpSection = false;
+
+  late AnimationController _notificationController;
+  late AnimationController _calendarController;
+  late AnimationController _filterController; // Add this line
 
   @override
   void initState() {
@@ -74,6 +79,12 @@ class _EventsPageState extends State<EventsPage> {
 
     // Initialize timers
     _firebaseService.initializeTimers();
+
+    _notificationController = AnimationController(vsync: this);
+    _calendarController = AnimationController(
+        vsync: this); // Initialize calendar animation controller
+    _filterController = AnimationController(
+        vsync: this); // Initialize filter animation controller
   }
 
   // Fetch the user's current location
@@ -132,6 +143,9 @@ class _EventsPageState extends State<EventsPage> {
     }
     statusSubscriptions.clear(); // Add this to clear the map
     _scrollController.dispose();
+    _notificationController.dispose();
+    _calendarController.dispose();
+    _filterController.dispose(); // Dispose filter animation controller
     super.dispose();
   }
 
@@ -510,9 +524,11 @@ class _EventsPageState extends State<EventsPage> {
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  // Calendar icon
+                  // Calendar animation
                   Container(
                     margin: EdgeInsets.symmetric(vertical: 8, horizontal: 16),
+                    width: 40, // Match the size of the notification button
+                    height: 40, // Match the size of the notification button
                     decoration: BoxDecoration(
                       color: Color.fromARGB(
                           255, 211, 211, 211), // Light grey background
@@ -525,18 +541,44 @@ class _EventsPageState extends State<EventsPage> {
                         ),
                       ],
                     ),
-                    child: IconButton(
-                      icon: Icon(Icons.calendar_month_rounded),
-                      onPressed: () {
+                    child: GestureDetector(
+                      onTap: () async {
+                        _calendarController.reset();
+                        _calendarController.forward();
+                        await Future.delayed(Duration(milliseconds: 500));
                         Navigator.push(
                           context,
-                          MaterialPageRoute(
-                            builder: (context) => EventsCalendarPage(),
+                          PageRouteBuilder(
+                            pageBuilder:
+                                (context, animation, secondaryAnimation) =>
+                                    EventsCalendarPage(),
+                            transitionsBuilder: (context, animation,
+                                secondaryAnimation, child) {
+                              const begin = Offset(-1.0, 0.0);
+                              const end = Offset.zero;
+                              const curve = Curves.easeInOut;
+
+                              var tween = Tween(begin: begin, end: end)
+                                  .chain(CurveTween(curve: curve));
+                              var offsetAnimation = animation.drive(tween);
+
+                              return SlideTransition(
+                                  position: offsetAnimation, child: child);
+                            },
                           ),
                         );
                       },
+                      child: Lottie.asset(
+                        'assets/animations/appbar_icons/calendar.json',
+                        controller: _calendarController,
+                        onLoaded: (composition) {
+                          _calendarController.duration = composition.duration;
+                        },
+                        repeat: false,
+                      ),
                     ),
                   ),
+
                   // Date and time
                   Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
@@ -552,9 +594,12 @@ class _EventsPageState extends State<EventsPage> {
                       ),
                     ],
                   ),
-                  // Notifications icon
+
+                  // Notifications animation
                   Container(
                     margin: EdgeInsets.symmetric(vertical: 8, horizontal: 16),
+                    width: 40, // Match the size of the calendar button
+                    height: 40, // Match the size of the calendar button
                     decoration: BoxDecoration(
                       color: Color.fromARGB(
                           255, 211, 211, 211), // Light grey background
@@ -567,16 +612,42 @@ class _EventsPageState extends State<EventsPage> {
                         ),
                       ],
                     ),
-                    child: IconButton(
-                      icon: Icon(Icons.notifications),
-                      onPressed: () {
+                    child: GestureDetector(
+                      onTap: () async {
+                        _notificationController.reset();
+                        _notificationController.forward();
+                        await Future.delayed(Duration(milliseconds: 500));
                         Navigator.push(
                           context,
-                          MaterialPageRoute(
-                            builder: (context) => NotificationsPanel(),
+                          PageRouteBuilder(
+                            pageBuilder:
+                                (context, animation, secondaryAnimation) =>
+                                    NotificationsPanel(),
+                            transitionsBuilder: (context, animation,
+                                secondaryAnimation, child) {
+                              const begin = Offset(1.0, 0.0);
+                              const end = Offset.zero;
+                              const curve = Curves.easeInOut;
+
+                              var tween = Tween(begin: begin, end: end)
+                                  .chain(CurveTween(curve: curve));
+                              var offsetAnimation = animation.drive(tween);
+
+                              return SlideTransition(
+                                  position: offsetAnimation, child: child);
+                            },
                           ),
                         );
                       },
+                      child: Lottie.asset(
+                        'assets/animations/appbar_icons/notifications.json',
+                        controller: _notificationController,
+                        onLoaded: (composition) {
+                          _notificationController.duration =
+                              composition.duration;
+                        },
+                        repeat: false,
+                      ),
                     ),
                   ),
                 ],
@@ -642,6 +713,8 @@ class _EventsPageState extends State<EventsPage> {
                       padding: const EdgeInsets.only(right: 16.0),
                       child: GestureDetector(
                         onTap: () {
+                          _filterController.reset();
+                          _filterController.forward();
                           showModalBottomSheet(
                             barrierColor: Colors.black.withOpacity(0.5),
                             shape: RoundedRectangleBorder(
@@ -751,7 +824,8 @@ class _EventsPageState extends State<EventsPage> {
                           );
                         },
                         child: Container(
-                          padding: EdgeInsets.all(6),
+                          width: 32, // Smaller button size
+                          height: 32, // Smaller button size
                           decoration: BoxDecoration(
                             color: Colors.black.withOpacity(0.1),
                             borderRadius: BorderRadius.circular(50),
@@ -763,10 +837,20 @@ class _EventsPageState extends State<EventsPage> {
                               ),
                             ],
                           ),
-                          child: Icon(
-                            Icons.tune,
-                            color: Colors.black,
-                            size: 20,
+                          child: Center(
+                            child: Lottie.asset(
+                              'assets/animations/appbar_icons/filter.json',
+                              controller: _filterController,
+                              onLoaded: (composition) {
+                                _filterController.duration =
+                                    composition.duration * 0.5; // Faster
+                              },
+                              repeat: false,
+                              width:
+                                  20, // Adjusted icon size for smaller button
+                              height:
+                                  20, // Adjusted icon size for smaller button
+                            ),
                           ),
                         ),
                       ),

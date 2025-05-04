@@ -5,8 +5,33 @@ import 'package:community_impact_tracker/main_pages/shop/favorite_products.dart'
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:provider/provider.dart';
+import 'package:lottie/lottie.dart';
 
-class ShopPage extends StatelessWidget {
+class ShopPage extends StatefulWidget {
+  @override
+  _ShopPageState createState() => _ShopPageState();
+}
+
+class _ShopPageState extends State<ShopPage> with TickerProviderStateMixin {
+  late AnimationController _favoritesAnimationController;
+  late AnimationController
+      _cartAnimationController; // Add cart animation controller
+
+  @override
+  void initState() {
+    super.initState();
+    _favoritesAnimationController = AnimationController(vsync: this);
+    _cartAnimationController = AnimationController(
+        vsync: this); // Initialize cart animation controller
+  }
+
+  @override
+  void dispose() {
+    _favoritesAnimationController.dispose();
+    _cartAnimationController.dispose(); // Dispose cart animation controller
+    super.dispose();
+  }
+
   String _formatPrice(dynamic price) {
     if (price is num) {
       return price % 1 == 0 ? price.toInt().toString() : price.toString();
@@ -21,21 +46,83 @@ class ShopPage extends StatelessWidget {
       appBar: TransparentAppBar(
         title: const Center(child: Text('Shop')),
         leading: IconButton(
-          icon: const Icon(Icons.favorite),
-          onPressed: () {
+          icon: SizedBox(
+            width: 30,
+            height: 30,
+            child: Lottie.asset(
+              'assets/animations/appbar_icons/favorites.json',
+              controller: _favoritesAnimationController,
+              onLoaded: (composition) {
+                _favoritesAnimationController.duration = composition.duration;
+              },
+            ),
+          ),
+          onPressed: () async {
+            _favoritesAnimationController.forward(from: 0); // Start animation
+            await Future.delayed(
+                const Duration(milliseconds: 500)); // Add delay
             Navigator.push(
               context,
-              MaterialPageRoute(builder: (context) => FavoriteProductsPage()),
+              PageRouteBuilder(
+                pageBuilder: (context, animation, secondaryAnimation) =>
+                    FavoriteProductsPage(),
+                transitionsBuilder:
+                    (context, animation, secondaryAnimation, child) {
+                  const begin = Offset(-1.0, 0.0); // Slide from the left
+                  const end = Offset.zero;
+                  const curve = Curves.easeInOut;
+
+                  var tween = Tween(begin: begin, end: end)
+                      .chain(CurveTween(curve: curve));
+                  var offsetAnimation = animation.drive(tween);
+
+                  return SlideTransition(
+                    position: offsetAnimation,
+                    child: child,
+                  );
+                },
+              ),
             );
           },
         ),
         actions: [
           IconButton(
-            icon: const Icon(Icons.shopping_cart_rounded),
-            onPressed: () {
+            icon: SizedBox(
+              width: 30,
+              height: 30,
+              child: Lottie.asset(
+                'assets/animations/appbar_icons/cart.json',
+                controller: _cartAnimationController,
+                onLoaded: (composition) {
+                  _cartAnimationController.duration = composition.duration;
+                },
+              ),
+            ),
+            onPressed: () async {
+              _cartAnimationController.forward(from: 0); // Start animation
+              await Future.delayed(
+                  const Duration(milliseconds: 500)); // Add delay
               Navigator.push(
                 context,
-                MaterialPageRoute(builder: (context) => CartPage()),
+                PageRouteBuilder(
+                  pageBuilder: (context, animation, secondaryAnimation) =>
+                      CartPage(),
+                  transitionsBuilder:
+                      (context, animation, secondaryAnimation, child) {
+                    const begin = Offset(1.0, 0.0); // Slide from the right
+                    const end = Offset.zero;
+                    const curve = Curves.easeInOut;
+
+                    var tween = Tween(begin: begin, end: end)
+                        .chain(CurveTween(curve: curve));
+                    var offsetAnimation = animation.drive(tween);
+
+                    return SlideTransition(
+                      position: offsetAnimation,
+                      child: child,
+                    );
+                  },
+                ),
               );
             },
           ),

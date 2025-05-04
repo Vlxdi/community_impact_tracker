@@ -2,15 +2,30 @@ import 'package:community_impact_tracker/utils/addSpace.dart';
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:intl/intl.dart';
+import 'package:lottie/lottie.dart';
 
 class LeaderboardPage extends StatefulWidget {
   @override
   _LeaderboardPageState createState() => _LeaderboardPageState();
 }
 
-class _LeaderboardPageState extends State<LeaderboardPage> {
+class _LeaderboardPageState extends State<LeaderboardPage>
+    with SingleTickerProviderStateMixin {
   String searchQuery = '';
   String sortBy = 'level';
+  late AnimationController _filterController;
+
+  @override
+  void initState() {
+    super.initState();
+    _filterController = AnimationController(vsync: this);
+  }
+
+  @override
+  void dispose() {
+    _filterController.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -70,6 +85,8 @@ class _LeaderboardPageState extends State<LeaderboardPage> {
                         16), // Adjusted spacing between search and filter button
                 GestureDetector(
                   onTap: () {
+                    _filterController.reset();
+                    _filterController.forward();
                     showModalBottomSheet(
                       barrierColor: Colors.black.withOpacity(0.5),
                       shape: RoundedRectangleBorder(
@@ -121,7 +138,8 @@ class _LeaderboardPageState extends State<LeaderboardPage> {
                     );
                   },
                   child: Container(
-                    padding: EdgeInsets.all(6),
+                    width: 32, // Smaller button size
+                    height: 32, // Smaller button size
                     decoration: BoxDecoration(
                       color: Colors.black.withOpacity(0.1),
                       borderRadius: BorderRadius.circular(50),
@@ -133,10 +151,18 @@ class _LeaderboardPageState extends State<LeaderboardPage> {
                         ),
                       ],
                     ),
-                    child: Icon(
-                      Icons.tune,
-                      color: Colors.black,
-                      size: 20,
+                    child: Center(
+                      child: Lottie.asset(
+                        'assets/animations/appbar_icons/filter.json',
+                        controller: _filterController,
+                        onLoaded: (composition) {
+                          _filterController.duration =
+                              composition.duration * 0.5; // Faster
+                        },
+                        repeat: false,
+                        width: 20, // Adjusted icon size for smaller button
+                        height: 20, // Adjusted icon size for smaller button
+                      ),
                     ),
                   ),
                 ),
