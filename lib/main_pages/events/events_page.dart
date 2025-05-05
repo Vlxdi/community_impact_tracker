@@ -51,6 +51,8 @@ class _EventsPageState extends State<EventsPage> with TickerProviderStateMixin {
   late AnimationController _calendarController;
   late AnimationController _filterController; // Add this line
 
+  bool isNavigating = false;
+
   @override
   void initState() {
     super.initState();
@@ -484,6 +486,8 @@ class _EventsPageState extends State<EventsPage> with TickerProviderStateMixin {
     DateTime now = DateTime.now();
     String formattedDate = DateFormat('EEEE, d MMMM').format(now);
     String formattedTime = DateFormat('hh:mm a').format(now);
+    bool _isCalendarNavigating = false;
+    bool _isNotificationNavigating = false;
 
     // Use the class-level showSignedUpSection variable
     bool showSignedUpSection = this.showSignedUpSection;
@@ -518,7 +522,6 @@ class _EventsPageState extends State<EventsPage> with TickerProviderStateMixin {
         onRefresh: _refreshEvents,
         child: Column(
           children: [
-            // Top bar with date, time, and icons
             PreferredSize(
               preferredSize: Size.fromHeight(kToolbarHeight),
               child: Row(
@@ -527,11 +530,10 @@ class _EventsPageState extends State<EventsPage> with TickerProviderStateMixin {
                   // Calendar animation
                   Container(
                     margin: EdgeInsets.symmetric(vertical: 8, horizontal: 16),
-                    width: 40, // Match the size of the notification button
-                    height: 40, // Match the size of the notification button
+                    width: 40,
+                    height: 40,
                     decoration: BoxDecoration(
-                      color: Color.fromARGB(
-                          255, 211, 211, 211), // Light grey background
+                      color: Color.fromARGB(255, 211, 211, 211),
                       borderRadius: BorderRadius.circular(8),
                       boxShadow: [
                         BoxShadow(
@@ -543,10 +545,14 @@ class _EventsPageState extends State<EventsPage> with TickerProviderStateMixin {
                     ),
                     child: GestureDetector(
                       onTap: () async {
+                        if (_isCalendarNavigating) return;
+                        _isCalendarNavigating = true;
+
                         _calendarController.reset();
-                        _calendarController.forward();
+                        _calendarController.forward(from: 0.2);
                         await Future.delayed(Duration(milliseconds: 500));
-                        Navigator.push(
+
+                        await Navigator.push(
                           context,
                           PageRouteBuilder(
                             pageBuilder:
@@ -567,6 +573,8 @@ class _EventsPageState extends State<EventsPage> with TickerProviderStateMixin {
                             },
                           ),
                         );
+
+                        _isCalendarNavigating = false;
                       },
                       child: Lottie.asset(
                         'assets/animations/appbar_icons/calendar.json',
@@ -598,11 +606,10 @@ class _EventsPageState extends State<EventsPage> with TickerProviderStateMixin {
                   // Notifications animation
                   Container(
                     margin: EdgeInsets.symmetric(vertical: 8, horizontal: 16),
-                    width: 40, // Match the size of the calendar button
-                    height: 40, // Match the size of the calendar button
+                    width: 40,
+                    height: 40,
                     decoration: BoxDecoration(
-                      color: Color.fromARGB(
-                          255, 211, 211, 211), // Light grey background
+                      color: Color.fromARGB(255, 211, 211, 211),
                       borderRadius: BorderRadius.circular(8),
                       boxShadow: [
                         BoxShadow(
@@ -614,10 +621,14 @@ class _EventsPageState extends State<EventsPage> with TickerProviderStateMixin {
                     ),
                     child: GestureDetector(
                       onTap: () async {
+                        if (_isNotificationNavigating) return;
+                        _isNotificationNavigating = true;
+
                         _notificationController.reset();
-                        _notificationController.forward();
+                        _notificationController.forward(from: 0.2);
                         await Future.delayed(Duration(milliseconds: 500));
-                        Navigator.push(
+
+                        await Navigator.push(
                           context,
                           PageRouteBuilder(
                             pageBuilder:
@@ -638,6 +649,8 @@ class _EventsPageState extends State<EventsPage> with TickerProviderStateMixin {
                             },
                           ),
                         );
+
+                        _isNotificationNavigating = false;
                       },
                       child: Lottie.asset(
                         'assets/animations/appbar_icons/notifications.json',

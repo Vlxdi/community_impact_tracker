@@ -25,6 +25,7 @@ class _ProfilePageState extends State<ProfilePage>
   double _totalPoints = 0.0;
   late AnimationController _settingsAnimationController;
   late AnimationController _myEventsAnimationController; // Add this
+  bool _isNavigating = false;
 
   @override
   void initState() {
@@ -193,7 +194,7 @@ class _ProfilePageState extends State<ProfilePage>
         title: const Text("Profile"),
         leading: IconButton(
           icon: SizedBox(
-            width: 30, // Match the size of the settings icon
+            width: 30,
             height: 30,
             child: Lottie.asset(
               'assets/animations/appbar_icons/my_events_archive.json',
@@ -201,25 +202,26 @@ class _ProfilePageState extends State<ProfilePage>
               onLoaded: (composition) {
                 _myEventsAnimationController.duration = composition.duration;
               },
-              repeat: false, // Ensure the animation does not loop or auto-play
+              repeat: false,
             ),
           ),
           onPressed: () async {
-            _myEventsAnimationController.reset(); // Reset animation
-            _myEventsAnimationController.forward(
-                from: 0.2); // Start animation from 0.2
-            await Future.delayed(
-                const Duration(milliseconds: 500)); // Add delay
+            if (_isNavigating) return;
+            _isNavigating = true;
+
+            _myEventsAnimationController.reset();
+            _myEventsAnimationController.forward(from: 0.2);
+            await Future.delayed(const Duration(milliseconds: 500));
             String? userId = _controller.getCurrentUserId();
-            if (userId != null) {
-              Navigator.push(
+            if (userId != null && mounted) {
+              await Navigator.push(
                 context,
                 PageRouteBuilder(
                   pageBuilder: (context, animation, secondaryAnimation) =>
                       MyEventsArchive(userId: userId),
                   transitionsBuilder:
                       (context, animation, secondaryAnimation, child) {
-                    const begin = Offset(-1.0, 0.0); // Slide from the left
+                    const begin = Offset(-1.0, 0.0);
                     const end = Offset.zero;
                     const curve = Curves.easeInOut;
 
@@ -235,12 +237,13 @@ class _ProfilePageState extends State<ProfilePage>
                 ),
               );
             }
+            _isNavigating = false;
           },
         ),
         actions: [
           IconButton(
             icon: SizedBox(
-              width: 24, // Match the size of the previous icon
+              width: 24,
               height: 24,
               child: Lottie.asset(
                 'assets/animations/appbar_icons/settings.json',
@@ -251,9 +254,11 @@ class _ProfilePageState extends State<ProfilePage>
               ),
             ),
             onPressed: () async {
+              if (_isNavigating) return;
+              _isNavigating = true;
+
               _settingsAnimationController.forward(from: 0);
-              await Future.delayed(
-                  const Duration(milliseconds: 500)); // Add delay
+              await Future.delayed(const Duration(milliseconds: 500));
               bool? shouldRefresh = await Navigator.push(
                 context,
                 PageRouteBuilder(
@@ -261,7 +266,7 @@ class _ProfilePageState extends State<ProfilePage>
                       SettingsPage(),
                   transitionsBuilder:
                       (context, animation, secondaryAnimation, child) {
-                    const begin = Offset(1.0, 0.0); // Slide from the right
+                    const begin = Offset(1.0, 0.0);
                     const end = Offset.zero;
                     const curve = Curves.easeInOut;
 
@@ -282,6 +287,8 @@ class _ProfilePageState extends State<ProfilePage>
                   _username = username;
                 });
               }
+
+              _isNavigating = false;
             },
           ),
         ],

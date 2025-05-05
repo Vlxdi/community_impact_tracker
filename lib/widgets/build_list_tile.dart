@@ -16,7 +16,10 @@ Widget buildListTile({
       ),
     ),
     child: ListTile(
-      leading: Icon(icon),
+      leading: Icon(
+        icon,
+        color: Colors.black, // Set icon color to black
+      ),
       title: Text(title),
       onTap: onTap,
     ),

@@ -57,6 +57,11 @@ class MyApp extends StatelessWidget {
   }
 }
 
+// Utility function to check if the theme is dark
+bool isDarkTheme(BuildContext context) {
+  return Theme.of(context).brightness == Brightness.dark;
+}
+
 class TransparentAppBar extends StatelessWidget implements PreferredSizeWidget {
   final Widget title;
   final List<Widget>? actions;
@@ -71,15 +76,12 @@ class TransparentAppBar extends StatelessWidget implements PreferredSizeWidget {
 
   @override
   Widget build(BuildContext context) {
-    // Check if the theme is dark
-    final isDarkTheme = Theme.of(context).brightness == Brightness.dark;
-
     return ClipRect(
       child: BackdropFilter(
         filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
         child: AppBar(
           centerTitle: true,
-          backgroundColor: isDarkTheme
+          backgroundColor: isDarkTheme(context)
               ? Colors.transparent
               : Colors.white.withOpacity(
                   0.2), // transparent for dark theme, semi-transparent for light
@@ -219,10 +221,9 @@ class _MainPageState extends State<MainPage> {
                     .withOpacity(0.2), // Semi-transparent for blur effect
                 borderRadius: BorderRadius.circular(20),
                 border: Border.all(
-                  color: Theme.of(context).brightness == Brightness.light
-                      ? const Color.fromARGB(80, 124, 124, 124)
-                      : Colors.white
-                          .withOpacity(0.3), // Dark grey for light theme
+                  color: isDarkTheme(context)
+                      ? Colors.white.withOpacity(0.3)
+                      : const Color.fromARGB(80, 124, 124, 124),
                   width: 2,
                 ),
                 boxShadow: [
@@ -255,7 +256,8 @@ class _MainPageState extends State<MainPage> {
                 ],
                 currentIndex: _selectedIndex,
                 selectedItemColor: Colors.blue,
-                unselectedItemColor: Colors.grey,
+                unselectedItemColor:
+                    isDarkTheme(context) ? Colors.white : Colors.black,
                 backgroundColor: Colors.transparent,
                 type: BottomNavigationBarType.fixed,
                 elevation: 0,

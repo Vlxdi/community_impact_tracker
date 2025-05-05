@@ -17,6 +17,8 @@ class _ShopPageState extends State<ShopPage> with TickerProviderStateMixin {
   late AnimationController
       _cartAnimationController; // Add cart animation controller
 
+  bool _isNavigating = false;
+
   @override
   void initState() {
     super.initState();
@@ -46,70 +48,32 @@ class _ShopPageState extends State<ShopPage> with TickerProviderStateMixin {
       appBar: TransparentAppBar(
         title: const Center(child: Text('Shop')),
         leading: IconButton(
-          icon: SizedBox(
-            width: 30,
-            height: 30,
-            child: Lottie.asset(
-              'assets/animations/appbar_icons/favorites.json',
-              controller: _favoritesAnimationController,
-              onLoaded: (composition) {
-                _favoritesAnimationController.duration = composition.duration;
-              },
-            ),
-          ),
-          onPressed: () async {
-            _favoritesAnimationController.forward(from: 0); // Start animation
-            await Future.delayed(
-                const Duration(milliseconds: 500)); // Add delay
-            Navigator.push(
-              context,
-              PageRouteBuilder(
-                pageBuilder: (context, animation, secondaryAnimation) =>
-                    FavoriteProductsPage(),
-                transitionsBuilder:
-                    (context, animation, secondaryAnimation, child) {
-                  const begin = Offset(-1.0, 0.0); // Slide from the left
-                  const end = Offset.zero;
-                  const curve = Curves.easeInOut;
-
-                  var tween = Tween(begin: begin, end: end)
-                      .chain(CurveTween(curve: curve));
-                  var offsetAnimation = animation.drive(tween);
-
-                  return SlideTransition(
-                    position: offsetAnimation,
-                    child: child,
-                  );
-                },
-              ),
-            );
-          },
-        ),
-        actions: [
-          IconButton(
             icon: SizedBox(
               width: 30,
               height: 30,
               child: Lottie.asset(
-                'assets/animations/appbar_icons/cart.json',
-                controller: _cartAnimationController,
+                'assets/animations/appbar_icons/favorites.json',
+                controller: _favoritesAnimationController,
                 onLoaded: (composition) {
-                  _cartAnimationController.duration = composition.duration;
+                  _favoritesAnimationController.duration = composition.duration;
                 },
               ),
             ),
             onPressed: () async {
-              _cartAnimationController.forward(from: 0); // Start animation
-              await Future.delayed(
-                  const Duration(milliseconds: 500)); // Add delay
-              Navigator.push(
+              if (_isNavigating) return;
+              _isNavigating = true;
+
+              _favoritesAnimationController.forward(from: 0);
+              await Future.delayed(const Duration(milliseconds: 500));
+              if (!mounted) return;
+              await Navigator.push(
                 context,
                 PageRouteBuilder(
                   pageBuilder: (context, animation, secondaryAnimation) =>
-                      CartPage(),
+                      FavoriteProductsPage(),
                   transitionsBuilder:
                       (context, animation, secondaryAnimation, child) {
-                    const begin = Offset(1.0, 0.0); // Slide from the right
+                    const begin = Offset(-1.0, 0.0);
                     const end = Offset.zero;
                     const curve = Curves.easeInOut;
 
@@ -124,8 +88,52 @@ class _ShopPageState extends State<ShopPage> with TickerProviderStateMixin {
                   },
                 ),
               );
-            },
-          ),
+              _isNavigating = false;
+            }),
+        actions: [
+          IconButton(
+              icon: SizedBox(
+                width: 30,
+                height: 30,
+                child: Lottie.asset(
+                  'assets/animations/appbar_icons/cart.json',
+                  controller: _cartAnimationController,
+                  onLoaded: (composition) {
+                    _cartAnimationController.duration = composition.duration;
+                  },
+                ),
+              ),
+              onPressed: () async {
+                if (_isNavigating) return;
+                _isNavigating = true;
+
+                _cartAnimationController.forward(from: 0);
+                await Future.delayed(const Duration(milliseconds: 500));
+                if (!mounted) return;
+                await Navigator.push(
+                  context,
+                  PageRouteBuilder(
+                    pageBuilder: (context, animation, secondaryAnimation) =>
+                        CartPage(),
+                    transitionsBuilder:
+                        (context, animation, secondaryAnimation, child) {
+                      const begin = Offset(1.0, 0.0);
+                      const end = Offset.zero;
+                      const curve = Curves.easeInOut;
+
+                      var tween = Tween(begin: begin, end: end)
+                          .chain(CurveTween(curve: curve));
+                      var offsetAnimation = animation.drive(tween);
+
+                      return SlideTransition(
+                        position: offsetAnimation,
+                        child: child,
+                      );
+                    },
+                  ),
+                );
+                _isNavigating = false;
+              }),
         ],
       ),
       body: StreamBuilder<QuerySnapshot>(
