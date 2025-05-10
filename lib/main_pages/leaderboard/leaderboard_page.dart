@@ -1,4 +1,7 @@
+import 'dart:ui';
+
 import 'package:community_impact_tracker/utils/addSpace.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:intl/intl.dart';
@@ -15,11 +18,31 @@ class _LeaderboardPageState extends State<LeaderboardPage>
   String searchQuery = '';
   String sortBy = 'level';
   late AnimationController _filterController;
+  String? currentUserLocation;
 
   @override
   void initState() {
     super.initState();
     _filterController = AnimationController(vsync: this);
+    _fetchCurrentUserLocation();
+  }
+
+  Future<void> _fetchCurrentUserLocation() async {
+    final currentUserId = FirebaseAuth
+        .instance.currentUser?.uid; // Fetch the currently logged-in user's ID
+    if (currentUserId == null) {
+      return; // Handle the case where no user is logged in
+    }
+    final userDoc = await FirebaseFirestore.instance
+        .collection('users')
+        .doc(currentUserId)
+        .get();
+
+    if (userDoc.exists) {
+      setState(() {
+        currentUserLocation = userDoc.data()?['location'];
+      });
+    }
   }
 
   @override
@@ -48,36 +71,48 @@ class _LeaderboardPageState extends State<LeaderboardPage>
             child: Row(
               children: [
                 Expanded(
-                  child: Container(
-                    height: 40,
-                    decoration: BoxDecoration(
-                      boxShadow: [
-                        BoxShadow(
-                          color: Colors.black.withOpacity(0.2),
-                          blurRadius: 4,
-                          offset: Offset(0, 2),
+                  child: ClipRRect(
+                    borderRadius: BorderRadius.circular(20),
+                    child: BackdropFilter(
+                      filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
+                      child: Container(
+                        height: 36,
+                        decoration: BoxDecoration(
+                          color: Colors.white.withOpacity(0.2),
+                          border: Border.all(
+                            color: const Color.fromARGB(80, 124, 124, 124),
+                            width: 2,
+                          ),
+                          borderRadius: BorderRadius.circular(20),
+                          boxShadow: [
+                            BoxShadow(
+                              color: Colors.black.withOpacity(0.1),
+                              spreadRadius: 3,
+                              blurRadius: 10,
+                              offset: Offset(0, 10),
+                            ),
+                          ],
                         ),
-                      ],
-                      borderRadius: BorderRadius.circular(30),
-                    ),
-                    child: TextField(
-                      decoration: InputDecoration(
-                        hintText: 'Search for users...',
-                        prefixIcon: Icon(Icons.search, size: 20),
-                        filled: true,
-                        fillColor: Colors.white,
-                        contentPadding: EdgeInsets.symmetric(vertical: 0),
-                        border: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(30),
-                          borderSide: BorderSide.none,
+                        child: TextField(
+                          decoration: InputDecoration(
+                            hintText: 'Search for users...',
+                            prefixIcon: Icon(Icons.search, size: 20),
+                            filled: true,
+                            fillColor: Colors.transparent,
+                            contentPadding: EdgeInsets.symmetric(vertical: 0),
+                            border: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(20),
+                              borderSide: BorderSide.none,
+                            ),
+                          ),
+                          style: TextStyle(fontSize: 12),
+                          onChanged: (value) {
+                            setState(() {
+                              searchQuery = value.toLowerCase();
+                            });
+                          },
                         ),
                       ),
-                      style: TextStyle(fontSize: 13),
-                      onChanged: (value) {
-                        setState(() {
-                          searchQuery = value.toLowerCase();
-                        });
-                      },
                     ),
                   ),
                 ),
@@ -89,58 +124,106 @@ class _LeaderboardPageState extends State<LeaderboardPage>
                     _filterController.reset();
                     _filterController.forward();
                     showModalBottomSheet(
-                      barrierColor: Colors.black.withOpacity(0.5),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.only(
-                          topLeft: Radius.circular(20),
-                          topRight: Radius.circular(20),
-                        ),
-                      ),
                       context: context,
+                      barrierColor: Colors.transparent,
+                      backgroundColor: Colors.transparent,
+                      isScrollControlled: true,
                       builder: (context) {
-                        return Container(
-                          decoration: BoxDecoration(
-                            color: Colors.white,
-                            borderRadius: BorderRadius.only(
-                              topLeft: Radius.circular(20),
-                              topRight: Radius.circular(20),
+                        return Stack(
+                          children: [
+                            Positioned(
+                              top: 0,
+                              left: 0,
+                              right: 0,
+                              height: 30,
+                              child: Container(
+                                decoration: const BoxDecoration(
+                                  boxShadow: [
+                                    BoxShadow(
+                                      color: Colors.black26,
+                                      blurRadius: 30,
+                                      spreadRadius: 5,
+                                      offset: Offset(0, 10),
+                                    ),
+                                  ],
+                                ),
+                              ),
                             ),
-                          ),
-                          child: Column(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              buildListTile(
-                                icon: Icons.leaderboard,
-                                title: 'Sort by Level',
-                                isSelected: sortBy == 'level',
-                                onTap: () {
-                                  setState(() {
-                                    sortBy = 'level';
-                                  });
-                                  Navigator.pop(context);
-                                },
-                                isTop: true,
+                            Container(
+                              margin: const EdgeInsets.only(top: 20),
+                              child: ClipRRect(
+                                borderRadius: const BorderRadius.only(
+                                  topLeft: Radius.circular(20),
+                                  topRight: Radius.circular(20),
+                                ),
+                                child: BackdropFilter(
+                                  filter:
+                                      ImageFilter.blur(sigmaX: 10, sigmaY: 10),
+                                  child: Container(
+                                    decoration: BoxDecoration(
+                                      color: const Color.fromARGB(
+                                          10, 124, 124, 124),
+                                      border: Border.all(
+                                        color: const Color.fromARGB(
+                                            80, 124, 124, 124),
+                                        width: 2,
+                                      ),
+                                      borderRadius: const BorderRadius.only(
+                                        topLeft: Radius.circular(20),
+                                        topRight: Radius.circular(20),
+                                      ),
+                                    ),
+                                    child: Column(
+                                      mainAxisSize: MainAxisSize.min,
+                                      children: [
+                                        buildListTile(
+                                          icon: Icons.leaderboard,
+                                          title: 'Sort by Level',
+                                          isSelected: sortBy == 'level',
+                                          onTap: () {
+                                            setState(() {
+                                              sortBy = 'level';
+                                            });
+                                            Navigator.pop(context);
+                                          },
+                                          isTop: true,
+                                        ),
+                                        buildListTile(
+                                          icon: Icons.star,
+                                          title: 'Sort by Points',
+                                          isSelected: sortBy == 'points',
+                                          onTap: () {
+                                            setState(() {
+                                              sortBy = 'points';
+                                            });
+                                            Navigator.pop(context);
+                                          },
+                                        ),
+                                        buildListTile(
+                                          icon: Icons.location_on,
+                                          title: 'Local Users',
+                                          isSelected: sortBy == 'location',
+                                          onTap: () {
+                                            setState(() {
+                                              sortBy = 'location';
+                                            });
+                                            Navigator.pop(context);
+                                          },
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                ),
                               ),
-                              buildListTile(
-                                icon: Icons.star,
-                                title: 'Sort by Points',
-                                isSelected: sortBy == 'points',
-                                onTap: () {
-                                  setState(() {
-                                    sortBy = 'points';
-                                  });
-                                  Navigator.pop(context);
-                                },
-                              ),
-                            ],
-                          ),
+                            ),
+                          ],
                         );
                       },
                     );
                   },
                   child: Container(
-                    width: 32, // Smaller button size
-                    height: 32, // Smaller button size
+                    width: 32,
+                    height: 32,
                     decoration: BoxDecoration(
                       color: Colors.black.withOpacity(0.1),
                       borderRadius: BorderRadius.circular(50),
@@ -158,11 +241,11 @@ class _LeaderboardPageState extends State<LeaderboardPage>
                         controller: _filterController,
                         onLoaded: (composition) {
                           _filterController.duration =
-                              composition.duration * 0.5; // Faster
+                              composition.duration * 0.5;
                         },
                         repeat: false,
-                        width: 20, // Adjusted icon size for smaller button
-                        height: 20, // Adjusted icon size for smaller button
+                        width: 20,
+                        height: 20,
                       ),
                     ),
                   ),
@@ -213,9 +296,14 @@ class _LeaderboardPageState extends State<LeaderboardPage>
                 fullData.sort((a, b) {
                   if (sortBy == 'level') {
                     return b['level'].compareTo(a['level']);
-                  } else {
+                  } else if (sortBy == 'points') {
                     return b['wallet_balance'].compareTo(a['wallet_balance']);
+                  } else if (sortBy == 'location') {
+                    return a['location']
+                        .toString()
+                        .compareTo(b['location'].toString());
                   }
+                  return 0;
                 });
 
                 for (int i = 0; i < fullData.length; i++) {
@@ -223,6 +311,10 @@ class _LeaderboardPageState extends State<LeaderboardPage>
                 }
 
                 final leaderboardData = fullData.where((entry) {
+                  if (sortBy == 'location') {
+                    return currentUserLocation != null &&
+                        entry['location'] == currentUserLocation;
+                  }
                   return entry['username'].toLowerCase().contains(searchQuery);
                 }).toList();
 

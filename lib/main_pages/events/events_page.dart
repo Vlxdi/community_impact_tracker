@@ -1,3 +1,5 @@
+import 'dart:ui';
+
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:community_impact_tracker/main_pages/events/events_calendar.dart';
 import 'package:community_impact_tracker/main_pages/notifications/notifications_panel.dart';
@@ -50,6 +52,9 @@ class _EventsPageState extends State<EventsPage> with TickerProviderStateMixin {
   late AnimationController _notificationController;
   late AnimationController _calendarController;
   late AnimationController _filterController; // Add this line
+  late AnimationController _filterTitleController;
+  late Animation<Offset> _slideAnimation;
+  late Animation<double> _fadeAnimation;
 
   bool isNavigating = false;
 
@@ -83,10 +88,29 @@ class _EventsPageState extends State<EventsPage> with TickerProviderStateMixin {
     _firebaseService.initializeTimers();
 
     _notificationController = AnimationController(vsync: this);
-    _calendarController = AnimationController(
-        vsync: this); // Initialize calendar animation controller
-    _filterController = AnimationController(
-        vsync: this); // Initialize filter animation controller
+    _calendarController = AnimationController(vsync: this);
+    _filterController = AnimationController(vsync: this);
+    _filterTitleController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 300),
+    );
+    _slideAnimation = Tween<Offset>(
+      begin: const Offset(-1.0, 0.0),
+      end: Offset.zero,
+    ).animate(CurvedAnimation(
+      parent: _filterTitleController,
+      curve: Curves.easeInOut,
+    ));
+    _fadeAnimation = Tween<double>(
+      begin: 0.0,
+      end: 1.0,
+    ).animate(CurvedAnimation(
+      parent: _filterTitleController,
+      curve: Curves.easeInOut,
+    ));
+
+    // Trigger the title animation on app start
+    _filterTitleController.forward();
   }
 
   // Fetch the user's current location
@@ -148,6 +172,7 @@ class _EventsPageState extends State<EventsPage> with TickerProviderStateMixin {
     _notificationController.dispose();
     _calendarController.dispose();
     _filterController.dispose(); // Dispose filter animation controller
+    _filterTitleController.dispose();
     super.dispose();
   }
 
@@ -481,6 +506,18 @@ class _EventsPageState extends State<EventsPage> with TickerProviderStateMixin {
     }
   }
 
+  void _updateFilter(String filter) {
+    // Trigger fade-out animation
+    _filterTitleController.reverse().then((_) {
+      setState(() {
+        selectedFilter = filter;
+        // Trigger fade-in animation
+        _filterTitleController.forward();
+        _applyFilter();
+      });
+    });
+  }
+
   @override
   Widget build(BuildContext context) {
     DateTime now = DateTime.now();
@@ -530,59 +567,59 @@ class _EventsPageState extends State<EventsPage> with TickerProviderStateMixin {
                   // Calendar animation
                   Container(
                     margin: EdgeInsets.symmetric(vertical: 8, horizontal: 16),
-                    width: 40,
-                    height: 40,
+                    width: 42,
+                    height: 42,
                     decoration: BoxDecoration(
-                      color: Color.fromARGB(255, 211, 211, 211),
-                      borderRadius: BorderRadius.circular(8),
-                      boxShadow: [
-                        BoxShadow(
-                          color: Colors.black.withOpacity(0.2),
-                          blurRadius: 6,
-                          offset: Offset(0, 2),
-                        ),
-                      ],
+                      color: Colors.transparent,
+                      borderRadius: BorderRadius.circular(10),
+                      border: Border.all(
+                        color: const Color.fromARGB(80, 124, 124, 124),
+                        width: 2,
+                      ),
                     ),
-                    child: GestureDetector(
-                      onTap: () async {
-                        if (_isCalendarNavigating) return;
-                        _isCalendarNavigating = true;
+                    child: ClipRRect(
+                      borderRadius: BorderRadius.circular(10),
+                      child: GestureDetector(
+                        onTap: () async {
+                          if (_isCalendarNavigating) return;
+                          _isCalendarNavigating = true;
 
-                        _calendarController.reset();
-                        _calendarController.forward(from: 0.2);
-                        await Future.delayed(Duration(milliseconds: 500));
+                          _calendarController.reset();
+                          _calendarController.forward(from: 0.2);
+                          await Future.delayed(Duration(milliseconds: 500));
 
-                        await Navigator.push(
-                          context,
-                          PageRouteBuilder(
-                            pageBuilder:
-                                (context, animation, secondaryAnimation) =>
-                                    EventsCalendarPage(),
-                            transitionsBuilder: (context, animation,
-                                secondaryAnimation, child) {
-                              const begin = Offset(-1.0, 0.0);
-                              const end = Offset.zero;
-                              const curve = Curves.easeInOut;
+                          await Navigator.push(
+                            context,
+                            PageRouteBuilder(
+                              pageBuilder:
+                                  (context, animation, secondaryAnimation) =>
+                                      EventsCalendarPage(),
+                              transitionsBuilder: (context, animation,
+                                  secondaryAnimation, child) {
+                                const begin = Offset(-1.0, 0.0);
+                                const end = Offset.zero;
+                                const curve = Curves.easeInOut;
 
-                              var tween = Tween(begin: begin, end: end)
-                                  .chain(CurveTween(curve: curve));
-                              var offsetAnimation = animation.drive(tween);
+                                var tween = Tween(begin: begin, end: end)
+                                    .chain(CurveTween(curve: curve));
+                                var offsetAnimation = animation.drive(tween);
 
-                              return SlideTransition(
-                                  position: offsetAnimation, child: child);
-                            },
-                          ),
-                        );
+                                return SlideTransition(
+                                    position: offsetAnimation, child: child);
+                              },
+                            ),
+                          );
 
-                        _isCalendarNavigating = false;
-                      },
-                      child: Lottie.asset(
-                        'assets/animations/appbar_icons/calendar.json',
-                        controller: _calendarController,
-                        onLoaded: (composition) {
-                          _calendarController.duration = composition.duration;
+                          _isCalendarNavigating = false;
                         },
-                        repeat: false,
+                        child: Lottie.asset(
+                          'assets/animations/appbar_icons/calendar.json',
+                          controller: _calendarController,
+                          onLoaded: (composition) {
+                            _calendarController.duration = composition.duration;
+                          },
+                          repeat: false,
+                        ),
                       ),
                     ),
                   ),
@@ -606,60 +643,60 @@ class _EventsPageState extends State<EventsPage> with TickerProviderStateMixin {
                   // Notifications animation
                   Container(
                     margin: EdgeInsets.symmetric(vertical: 8, horizontal: 16),
-                    width: 40,
-                    height: 40,
+                    width: 42,
+                    height: 42,
                     decoration: BoxDecoration(
-                      color: Color.fromARGB(255, 211, 211, 211),
-                      borderRadius: BorderRadius.circular(8),
-                      boxShadow: [
-                        BoxShadow(
-                          color: Colors.black.withOpacity(0.2),
-                          blurRadius: 6,
-                          offset: Offset(0, 2),
-                        ),
-                      ],
+                      color: Colors.transparent,
+                      borderRadius: BorderRadius.circular(10),
+                      border: Border.all(
+                        color: const Color.fromARGB(80, 124, 124, 124),
+                        width: 2,
+                      ),
                     ),
-                    child: GestureDetector(
-                      onTap: () async {
-                        if (_isNotificationNavigating) return;
-                        _isNotificationNavigating = true;
+                    child: ClipRRect(
+                      borderRadius: BorderRadius.circular(10),
+                      child: GestureDetector(
+                        onTap: () async {
+                          if (_isNotificationNavigating) return;
+                          _isNotificationNavigating = true;
 
-                        _notificationController.reset();
-                        _notificationController.forward(from: 0.2);
-                        await Future.delayed(Duration(milliseconds: 500));
+                          _notificationController.reset();
+                          _notificationController.forward(from: 0.2);
+                          await Future.delayed(Duration(milliseconds: 500));
 
-                        await Navigator.push(
-                          context,
-                          PageRouteBuilder(
-                            pageBuilder:
-                                (context, animation, secondaryAnimation) =>
-                                    NotificationsPanel(),
-                            transitionsBuilder: (context, animation,
-                                secondaryAnimation, child) {
-                              const begin = Offset(1.0, 0.0);
-                              const end = Offset.zero;
-                              const curve = Curves.easeInOut;
+                          await Navigator.push(
+                            context,
+                            PageRouteBuilder(
+                              pageBuilder:
+                                  (context, animation, secondaryAnimation) =>
+                                      NotificationsPanel(),
+                              transitionsBuilder: (context, animation,
+                                  secondaryAnimation, child) {
+                                const begin = Offset(1.0, 0.0);
+                                const end = Offset.zero;
+                                const curve = Curves.easeInOut;
 
-                              var tween = Tween(begin: begin, end: end)
-                                  .chain(CurveTween(curve: curve));
-                              var offsetAnimation = animation.drive(tween);
+                                var tween = Tween(begin: begin, end: end)
+                                    .chain(CurveTween(curve: curve));
+                                var offsetAnimation = animation.drive(tween);
 
-                              return SlideTransition(
-                                  position: offsetAnimation, child: child);
-                            },
-                          ),
-                        );
+                                return SlideTransition(
+                                    position: offsetAnimation, child: child);
+                              },
+                            ),
+                          );
 
-                        _isNotificationNavigating = false;
-                      },
-                      child: Lottie.asset(
-                        'assets/animations/appbar_icons/notifications.json',
-                        controller: _notificationController,
-                        onLoaded: (composition) {
-                          _notificationController.duration =
-                              composition.duration;
+                          _isNotificationNavigating = false;
                         },
-                        repeat: false,
+                        child: Lottie.asset(
+                          'assets/animations/appbar_icons/notifications.json',
+                          controller: _notificationController,
+                          onLoaded: (composition) {
+                            _notificationController.duration =
+                                composition.duration;
+                          },
+                          repeat: false,
+                        ),
                       ),
                     ),
                   ),
@@ -672,13 +709,28 @@ class _EventsPageState extends State<EventsPage> with TickerProviderStateMixin {
               alignment: Alignment.topLeft,
               child: Padding(
                 padding: const EdgeInsetsDirectional.only(start: 16, bottom: 8),
-                child: Text(
-                  selectedFilter == 'ongoing'
-                      ? 'This Week'
-                      : selectedFilter == 'recently ended'
-                          ? 'Past Week'
-                          : 'Next Week',
-                  style: TextStyle(fontSize: 40, fontWeight: FontWeight.bold),
+                child: AnimatedBuilder(
+                  animation: _filterTitleController,
+                  builder: (context, child) {
+                    return FadeTransition(
+                      opacity: _fadeAnimation,
+                      child: SlideTransition(
+                        position: _slideAnimation,
+                        child: child,
+                      ),
+                    );
+                  },
+                  child: Text(
+                    selectedFilter == 'ongoing'
+                        ? 'This Week'
+                        : selectedFilter == 'recently ended'
+                            ? 'Past Week'
+                            : 'Next Week',
+                    style: const TextStyle(
+                      fontSize: 40,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
                 ),
               ),
             ),
@@ -691,179 +743,227 @@ class _EventsPageState extends State<EventsPage> with TickerProviderStateMixin {
                 child: Row(
                   children: [
                     Wrap(
-                      spacing: 8,
+                      spacing: 6, // Reduced spacing between chips
                       runSpacing: 4,
                       children: ['ongoing', 'recently ended', 'upcoming']
                           .map((filter) {
                         return ChoiceChip(
                           label: Text(
+                            textHeightBehavior: TextHeightBehavior(
+                                applyHeightToFirstAscent: false),
                             filter,
-                            style: TextStyle(fontSize: 12),
+                            style: TextStyle(fontSize: 12), // Reduced font size
                           ),
                           backgroundColor:
-                              const Color.fromARGB(177, 177, 177, 177),
+                              Colors.transparent, // Semi-transparent background
+                          selectedColor:
+                              Color(0xFF71CD8C), // Updated selected color
                           selected: selectedFilter == filter,
                           showCheckmark: false,
                           onSelected: (bool selected) {
-                            setState(() {
-                              selectedFilter = filter;
-                              _applyFilter();
-                            });
+                            if (selected) {
+                              _updateFilter(filter);
+                            }
                           },
                           shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(20),
+                            borderRadius: BorderRadius.circular(
+                                16), // Slightly smaller border radius
+                            side: BorderSide(
+                              color: const Color.fromARGB(
+                                  80, 124, 124, 124), // Updated border color
+                              width: 2, // Reduced border width
+                            ),
                           ),
-                          padding:
-                              EdgeInsets.symmetric(vertical: 4, horizontal: 4),
-                          shadowColor: Colors.black.withOpacity(0.2),
-                          elevation: 4,
+                          padding: EdgeInsets.symmetric(
+                              vertical: 5, horizontal: 7), // Reduced padding
+                          shadowColor: Colors.black.withOpacity(0.1),
+                          elevation:
+                              4, // Same elevation as calendar/notification buttons
                         );
                       }).toList(),
                     ),
-                    Spacer(),
+                    Hspace(16), // Space between chips and sorting button
                     // Sorting button
-                    Padding(
-                      padding: const EdgeInsets.only(right: 16.0),
-                      child: GestureDetector(
-                        onTap: () {
-                          _filterController.reset();
-                          _filterController.forward();
-                          showModalBottomSheet(
-                            barrierColor: Colors.black.withOpacity(0.5),
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.only(
-                                topLeft: Radius.circular(20),
-                                topRight: Radius.circular(20),
-                              ),
-                            ),
-                            context: context,
-                            builder: (context) {
-                              return Container(
-                                decoration: BoxDecoration(
-                                  color: Colors.white,
-                                  borderRadius: BorderRadius.only(
-                                    topLeft: Radius.circular(20),
-                                    topRight: Radius.circular(20),
+                    GestureDetector(
+                      onTap: () {
+                        _filterController.reset();
+                        _filterController.forward();
+                        showModalBottomSheet(
+                          context: context,
+                          barrierColor: Colors.transparent,
+                          backgroundColor: Colors.transparent,
+                          isScrollControlled: true,
+                          builder: (context) {
+                            return Stack(
+                              children: [
+                                Positioned(
+                                  top: 0,
+                                  left: 0,
+                                  right: 0,
+                                  height: 30,
+                                  child: Container(
+                                    decoration: const BoxDecoration(
+                                      boxShadow: [
+                                        BoxShadow(
+                                          color: Colors.black26,
+                                          blurRadius: 30,
+                                          spreadRadius: 5,
+                                          offset: Offset(0, 10),
+                                        ),
+                                      ],
+                                    ),
                                   ),
                                 ),
-                                child: Column(
-                                  mainAxisSize: MainAxisSize.min,
-                                  children: [
-                                    buildListTile(
-                                      icon: Icons.more_time_rounded,
-                                      title: 'Most Recent',
-                                      isSelected: selectedSort == 'most_recent',
-                                      onTap: () {
-                                        setState(() {
-                                          selectedSort = 'most_recent';
-                                          _applySorting(filteredEvents);
-                                          _applySorting(signedUpEvents);
-                                        });
-                                        Navigator.pop(context);
-                                      },
-                                      isTop: true,
+                                Container(
+                                  margin: const EdgeInsets.only(top: 20),
+                                  child: ClipRRect(
+                                    borderRadius: const BorderRadius.only(
+                                      topLeft: Radius.circular(20),
+                                      topRight: Radius.circular(20),
                                     ),
-                                    buildListTile(
-                                      icon: Icons.star,
-                                      title: 'Most Points',
-                                      isSelected: selectedSort == 'most_points',
-                                      onTap: () {
-                                        setState(() {
-                                          selectedSort = 'most_points';
-                                          _applySorting(filteredEvents);
-                                          _applySorting(signedUpEvents);
-                                        });
-                                        Navigator.pop(context);
-                                      },
+                                    child: BackdropFilter(
+                                      filter: ImageFilter.blur(
+                                          sigmaX: 10, sigmaY: 10),
+                                      child: Container(
+                                        decoration: BoxDecoration(
+                                          color:
+                                              const Color.fromARGB(10, 0, 0, 0),
+                                          border: Border.all(
+                                            color: const Color.fromARGB(
+                                                80, 124, 124, 124),
+                                            width: 2,
+                                          ),
+                                          borderRadius: const BorderRadius.only(
+                                            topLeft: Radius.circular(20),
+                                            topRight: Radius.circular(20),
+                                          ),
+                                        ),
+                                        child: Column(
+                                          mainAxisSize: MainAxisSize.min,
+                                          children: [
+                                            buildListTile(
+                                              icon: Icons.more_time_rounded,
+                                              title: 'Most Recent',
+                                              isSelected:
+                                                  selectedSort == 'most_recent',
+                                              onTap: () {
+                                                setState(() {
+                                                  selectedSort = 'most_recent';
+                                                  _applySorting(filteredEvents);
+                                                  _applySorting(signedUpEvents);
+                                                });
+                                                Navigator.pop(context);
+                                              },
+                                              isTop: true,
+                                            ),
+                                            buildListTile(
+                                              icon: Icons.star,
+                                              title: 'Most Points',
+                                              isSelected:
+                                                  selectedSort == 'most_points',
+                                              onTap: () {
+                                                setState(() {
+                                                  selectedSort = 'most_points';
+                                                  _applySorting(filteredEvents);
+                                                  _applySorting(signedUpEvents);
+                                                });
+                                                Navigator.pop(context);
+                                              },
+                                            ),
+                                            buildListTile(
+                                              icon: Icons.my_location_rounded,
+                                              title: 'Near Me',
+                                              isSelected:
+                                                  selectedSort == 'near_me',
+                                              onTap: () {
+                                                setState(() {
+                                                  selectedSort = 'near_me';
+                                                  _applySorting(filteredEvents);
+                                                  _applySorting(signedUpEvents);
+                                                });
+                                                Navigator.pop(context);
+                                              },
+                                            ),
+                                            buildListTile(
+                                              icon: Icons.timelapse_rounded,
+                                              title: 'Starting Soon',
+                                              isSelected: selectedSort ==
+                                                  'starting_soon',
+                                              onTap: () {
+                                                setState(() {
+                                                  selectedSort =
+                                                      'starting_soon';
+                                                  _applySorting(filteredEvents);
+                                                  _applySorting(signedUpEvents);
+                                                });
+                                                Navigator.pop(context);
+                                              },
+                                            ),
+                                            buildListTile(
+                                              icon: Icons.hourglass_top_rounded,
+                                              title: 'Duration',
+                                              isSelected:
+                                                  selectedSort == 'duration',
+                                              onTap: () {
+                                                setState(() {
+                                                  selectedSort = 'duration';
+                                                  _applySorting(filteredEvents);
+                                                  _applySorting(signedUpEvents);
+                                                });
+                                                Navigator.pop(context);
+                                              },
+                                            ),
+                                            buildListTile(
+                                              icon: Icons.people,
+                                              title: 'Most Participants',
+                                              isSelected: selectedSort ==
+                                                  'most_participants',
+                                              onTap: () {
+                                                setState(() {
+                                                  selectedSort =
+                                                      'most_participants';
+                                                  _applySorting(filteredEvents);
+                                                  _applySorting(signedUpEvents);
+                                                });
+                                                Navigator.pop(context);
+                                              },
+                                            ),
+                                          ],
+                                        ),
+                                      ),
                                     ),
-                                    buildListTile(
-                                      icon: Icons.my_location_rounded,
-                                      title: 'Near Me',
-                                      isSelected: selectedSort == 'near_me',
-                                      onTap: () {
-                                        setState(() {
-                                          selectedSort = 'near_me';
-                                          _applySorting(filteredEvents);
-                                          _applySorting(signedUpEvents);
-                                        });
-                                        Navigator.pop(context);
-                                      },
-                                    ),
-                                    buildListTile(
-                                      icon: Icons.timelapse_rounded,
-                                      title: 'Starting Soon',
-                                      isSelected:
-                                          selectedSort == 'starting_soon',
-                                      onTap: () {
-                                        setState(() {
-                                          selectedSort = 'starting_soon';
-                                          _applySorting(filteredEvents);
-                                          _applySorting(signedUpEvents);
-                                        });
-                                        Navigator.pop(context);
-                                      },
-                                    ),
-                                    buildListTile(
-                                      icon: Icons.hourglass_top_rounded,
-                                      title: 'Duration',
-                                      isSelected: selectedSort == 'duration',
-                                      onTap: () {
-                                        setState(() {
-                                          selectedSort = 'duration';
-                                          _applySorting(filteredEvents);
-                                          _applySorting(signedUpEvents);
-                                        });
-                                        Navigator.pop(context);
-                                      },
-                                    ),
-                                    buildListTile(
-                                      icon: Icons.people,
-                                      title: 'Most Participants',
-                                      isSelected:
-                                          selectedSort == 'most_participants',
-                                      onTap: () {
-                                        setState(() {
-                                          selectedSort = 'most_participants';
-                                          _applySorting(filteredEvents);
-                                          _applySorting(signedUpEvents);
-                                        });
-                                        Navigator.pop(context);
-                                      },
-                                    ),
-                                  ],
+                                  ),
                                 ),
-                              );
-                            },
-                          );
-                        },
-                        child: Container(
-                          width: 32, // Smaller button size
-                          height: 32, // Smaller button size
-                          decoration: BoxDecoration(
-                            color: Colors.black.withOpacity(0.1),
-                            borderRadius: BorderRadius.circular(50),
-                            boxShadow: [
-                              BoxShadow(
-                                color: Colors.black.withOpacity(0.2),
-                                blurRadius: 4,
-                                offset: Offset(0, 2),
-                              ),
-                            ],
-                          ),
-                          child: Center(
-                            child: Lottie.asset(
-                              'assets/animations/appbar_icons/filter.json',
-                              controller: _filterController,
-                              onLoaded: (composition) {
-                                _filterController.duration =
-                                    composition.duration * 0.5; // Faster
-                              },
-                              repeat: false,
-                              width:
-                                  20, // Adjusted icon size for smaller button
-                              height:
-                                  20, // Adjusted icon size for smaller button
+                              ],
+                            );
+                          },
+                        );
+                      },
+                      child: Container(
+                        width: 32,
+                        height: 32,
+                        decoration: BoxDecoration(
+                          color: Colors.black.withOpacity(0.1),
+                          borderRadius: BorderRadius.circular(50),
+                          boxShadow: [
+                            BoxShadow(
+                              color: Colors.black.withOpacity(0.2),
+                              blurRadius: 4,
+                              offset: Offset(0, 2),
                             ),
+                          ],
+                        ),
+                        child: Center(
+                          child: Lottie.asset(
+                            'assets/animations/appbar_icons/filter.json',
+                            controller: _filterController,
+                            onLoaded: (composition) {
+                              _filterController.duration =
+                                  composition.duration * 0.5;
+                            },
+                            repeat: false,
+                            width: 20,
+                            height: 20,
                           ),
                         ),
                       ),

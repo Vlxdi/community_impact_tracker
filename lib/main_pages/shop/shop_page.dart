@@ -153,7 +153,8 @@ class _ShopPageState extends State<ShopPage> with TickerProviderStateMixin {
 
           return GridView.builder(
             // Add padding at the top to create space between app bar and content
-            padding: const EdgeInsets.fromLTRB(16, kToolbarHeight + 8, 16, 16),
+            padding: const EdgeInsets.fromLTRB(16, kToolbarHeight + 8, 16,
+                40 + kBottomNavigationBarHeight), // Adjust bottom padding
             gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
               crossAxisCount: 2,
               crossAxisSpacing: 16.0,

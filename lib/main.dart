@@ -203,9 +203,31 @@ class _MainPageState extends State<MainPage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      body: IndexedStack(
-        index: _selectedIndex,
-        children: _pages,
+      body: Stack(
+        children: [
+          IndexedStack(
+            index: _selectedIndex,
+            children: _pages,
+          ),
+          Positioned(
+            bottom: -5,
+            left: 0,
+            right: 0,
+            child: Container(
+              height: 15,
+              decoration: BoxDecoration(
+                boxShadow: [
+                  BoxShadow(
+                    color: const Color.fromARGB(150, 0, 0, 0),
+                    blurRadius: 40,
+                    spreadRadius: 15,
+                    offset: Offset(0, 15),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ],
       ),
       extendBody:
           true, // Makes content draw under the navbar for floating effect

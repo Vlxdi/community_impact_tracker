@@ -1,3 +1,5 @@
+import 'dart:ui';
+
 import 'package:flutter/material.dart';
 
 Widget buildListTile({
@@ -7,21 +9,24 @@ Widget buildListTile({
   required VoidCallback onTap,
   bool isTop = false,
 }) {
-  return Container(
-    decoration: BoxDecoration(
-      color: isSelected ? Colors.blue[100] : Colors.transparent,
-      borderRadius: BorderRadius.only(
-        topLeft: isTop ? Radius.circular(20) : Radius.zero,
-        topRight: isTop ? Radius.circular(20) : Radius.zero,
-      ),
+  return ClipRRect(
+    borderRadius: BorderRadius.only(
+      topLeft: isTop ? Radius.circular(20) : Radius.zero,
+      topRight: isTop ? Radius.circular(20) : Radius.zero,
     ),
-    child: ListTile(
-      leading: Icon(
-        icon,
-        color: Colors.black, // Set icon color to black
+    child: Container(
+      decoration: BoxDecoration(
+        color: isSelected ? Colors.blue : Colors.transparent,
+        borderRadius: BorderRadius.only(
+          topLeft: isTop ? Radius.circular(20) : Radius.zero,
+          topRight: isTop ? Radius.circular(20) : Radius.zero,
+        ),
       ),
-      title: Text(title),
-      onTap: onTap,
+      child: ListTile(
+        leading: Icon(icon, color: Colors.black),
+        title: Text(title),
+        onTap: onTap,
+      ),
     ),
   );
 }
