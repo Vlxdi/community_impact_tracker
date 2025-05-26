@@ -58,6 +58,7 @@ dependencies:
   flutter_launcher_icons: ^0.14.3
   saver_gallery: ^4.0.1
   flutter_heatmap_calendar: ^1.0.5
+  blur: ^4.0.2
   
   
 dev_dependencies:
@@ -102,6 +103,13 @@ flutter:
     - assets/animations/appbar_icons/notifications.json
     - assets/animations/appbar_icons/calendar.json
     - assets/animations/appbar_icons/filter.json
+    - assets/animations/search.json
+    # - assets/animations/search2.json
+    - assets/images/Facebook.png
+    - assets/images/Google.png
+
+  shaders:
+    - assets/shaders/moving_gradient.frag
 
   # An image asset can refer to one or more resolution-specific "variants", see
   # https://flutter.dev/to/resolution-aware-images

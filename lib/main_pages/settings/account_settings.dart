@@ -40,9 +40,9 @@ class _AccountSettingsPageState extends State<AccountSettingsPage> {
       try {
         final userDoc =
             await _firestore.collection('users').doc(user.uid).get();
-        if (userDoc.exists) {
+        if (userDoc.exists && mounted) {
+          // Check if mounted
           setState(() {
-            // Load the user's location from Firestore
             _selectedCountry = userDoc.data()?['location'] ?? 'United States';
           });
         }
@@ -66,16 +66,21 @@ class _AccountSettingsPageState extends State<AccountSettingsPage> {
 
         await user.reload();
 
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Profile updated successfully!')),
-        );
-
-        Navigator.pop(context, true);
+        if (mounted) {
+          // Check if mounted
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Profile updated successfully!')),
+          );
+          Navigator.pop(context, true);
+        }
       }
     } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Failed to update profile: $e')),
-      );
+      if (mounted) {
+        // Check if mounted
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Failed to update profile: $e')),
+        );
+      }
     }
   }
 

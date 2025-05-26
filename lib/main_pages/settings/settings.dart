@@ -49,13 +49,33 @@ class SettingsPage extends StatelessWidget {
             title: 'Experimental',
             subtitle:
                 'This feature is currently under development and might not work as expected.',
-            child: SwitchListTile(
-              title: const Text('Dark Mode'),
-              subtitle: const Text('Use dark theme'),
-              value: themeProvider.themeData == darkMode,
-              onChanged: (bool value) {
-                themeProvider.toggleTheme();
-              },
+            child: Column(
+              children: [
+                SwitchListTile(
+                  title: const Text('Dark Mode'),
+                  subtitle: const Text('Use dark theme'),
+                  value: themeProvider.appThemeMode == AppThemeMode.dark,
+                  onChanged: themeProvider.appThemeMode == AppThemeMode.gradient
+                      ? null
+                      : (bool value) {
+                          themeProvider.appThemeMode =
+                              value ? AppThemeMode.dark : AppThemeMode.light;
+                        },
+                ),
+                SwitchListTile(
+                  title: const Text('Gradient Theme'),
+                  subtitle: const Text('Animated blue gradient background'),
+                  value: themeProvider.appThemeMode == AppThemeMode.gradient,
+                  onChanged: (bool value) {
+                    if (value) {
+                      themeProvider.appThemeMode = AppThemeMode.gradient;
+                    } else {
+                      // Revert to light mode when turning off gradient
+                      themeProvider.appThemeMode = AppThemeMode.light;
+                    }
+                  },
+                ),
+              ],
             ),
           ),
           ListTile(

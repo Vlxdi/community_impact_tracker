@@ -3,10 +3,23 @@ import 'package:community_impact_tracker/main.dart';
 import 'package:flutter/material.dart';
 import '../../widgets/event_card.dart';
 
-class MyEventsArchive extends StatelessWidget {
+class MyEventsArchive extends StatefulWidget {
   final String userId;
 
-  const MyEventsArchive({Key? key, required this.userId}) : super(key: key);
+  const MyEventsArchive({super.key, required this.userId});
+
+  @override
+  State<MyEventsArchive> createState() => _MyEventsArchiveState();
+}
+
+class _MyEventsArchiveState extends State<MyEventsArchive> {
+  late final Future<List<Map<String, dynamic>>> _archivedEventsFuture;
+
+  @override
+  void initState() {
+    super.initState();
+    _archivedEventsFuture = _fetchArchivedEvents();
+  }
 
   Future<List<Map<String, dynamic>>> _fetchArchivedEvents() async {
     final FirebaseFirestore firestore = FirebaseFirestore.instance;
@@ -15,7 +28,7 @@ class MyEventsArchive extends StatelessWidget {
       // Fetch events from the user's subcollection
       final userEventsSnapshot = await firestore
           .collection('user_events')
-          .doc(userId)
+          .doc(widget.userId)
           .collection('events')
           .get();
 
@@ -62,11 +75,11 @@ class MyEventsArchive extends StatelessWidget {
     return Scaffold(
       extendBodyBehindAppBar:
           true, // Added this line to extend content behind app bar
-      appBar: TransparentAppBar(
+      appBar: AppBar(
         title: const Text('My Events Archive'),
       ),
       body: FutureBuilder<List<Map<String, dynamic>>>(
-        future: _fetchArchivedEvents(),
+        future: _archivedEventsFuture,
         builder: (context, snapshot) {
           if (snapshot.connectionState == ConnectionState.waiting) {
             return const Center(child: CircularProgressIndicator());
@@ -105,6 +118,7 @@ class MyEventsArchive extends StatelessWidget {
                 maxParticipants: event['maxParticipants'],
                 currentParticipants: event['currentParticipants'],
                 onSignIn: () {}, // Archived events don't need this
+                forceShowImage: true, // <-- Image will always be shown
               );
             },
           );

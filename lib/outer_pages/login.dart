@@ -1,3 +1,4 @@
+import 'dart:ui';
 import 'package:community_impact_tracker/main.dart';
 import 'package:community_impact_tracker/outer_pages/admin_panel.dart';
 import 'package:community_impact_tracker/utils/addSpace.dart';
@@ -16,7 +17,8 @@ class LoginPage extends StatefulWidget {
   _LoginPageState createState() => _LoginPageState();
 }
 
-class _LoginPageState extends State<LoginPage> {
+class _LoginPageState extends State<LoginPage>
+    with SingleTickerProviderStateMixin {
   final FirebaseAuth _auth = FirebaseAuth.instance;
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
   String _username = '';
@@ -30,13 +32,33 @@ class _LoginPageState extends State<LoginPage> {
   //final String _phone = '';
   //final String _verificationId = '';
   bool _isRegistering = false;
+  bool _rememberMe = false;
   // List of countries for dropdown
   final List<String> _countries = countries;
+
+  late final AnimationController _shaderController;
+  late Animation<double> _shaderAnimation;
+  Future<FragmentProgram>? _shaderProgramFuture;
 
   @override
   void initState() {
     super.initState();
     _getUserLocation();
+    _shaderController = AnimationController(
+      vsync: this,
+      duration: const Duration(seconds: 10),
+    );
+    _shaderAnimation = Tween<double>(begin: 0.0, end: 1.0).animate(
+        CurvedAnimation(parent: _shaderController, curve: Curves.linear));
+    _shaderController.repeat(reverse: true);
+    _shaderProgramFuture =
+        FragmentProgram.fromAsset('assets/shaders/moving_gradient.frag');
+  }
+
+  @override
+  void dispose() {
+    _shaderController.dispose();
+    super.dispose();
   }
 
   Future<void> _getUserLocation() async {
@@ -244,177 +266,680 @@ class _LoginPageState extends State<LoginPage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      body: Center(
-        child: Container(
-          width: 300,
-          decoration: BoxDecoration(
-            color: Color(0xFFF1F7FE),
-            borderRadius: BorderRadius.circular(16),
-            boxShadow: [
-              BoxShadow(
-                color: Colors.black26,
-                blurRadius: 20,
-                offset: Offset(0, 5),
-              ),
-            ],
-          ),
-          padding: EdgeInsets.all(24),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.center,
-            children: [
-              Text(
-                _isRegistering ? 'Sign up' : 'Login',
-                style: TextStyle(fontSize: 26, fontWeight: FontWeight.bold),
-              ),
-              Vspace(8),
-              Text(
-                _isRegistering
-                    ? 'Create a free account with your email.'
-                    : 'Log in to your account.',
-                style: TextStyle(fontSize: 16, color: Colors.grey[600]),
-                textAlign: TextAlign.center,
-              ),
-              Vspace(16),
-              Container(
-                padding: EdgeInsets.symmetric(horizontal: 16),
-                decoration: BoxDecoration(
-                  color: Colors.white,
-                  borderRadius: BorderRadius.circular(8),
-                ),
-                child: Column(
-                  children: [
-                    // Registration fields
-                    if (_isRegistering)
-                      Column(
-                        children: [
-                          TextField(
-                            decoration: InputDecoration(
-                              hintText: 'Username',
-                              border: InputBorder.none,
+      body: FutureBuilder<FragmentProgram>(
+        future: _shaderProgramFuture,
+        builder: (context, snapshot) {
+          if (!snapshot.hasData) {
+            return const Center(child: CircularProgressIndicator());
+          }
+          final program = snapshot.data!;
+          return AnimatedBuilder(
+            animation: _shaderAnimation,
+            builder: (context, child) {
+              return Stack(
+                children: [
+                  // Use ShaderPainter here
+                  Positioned.fill(
+                    child: CustomPaint(
+                      painter: ShaderPainter(
+                        program: program,
+                        time: _shaderAnimation.value * 10.0,
+                      ),
+                    ),
+                  ),
+                  Center(
+                    child: ClipRRect(
+                      borderRadius: BorderRadius.circular(20),
+                      child: BackdropFilter(
+                        filter: ImageFilter.blur(sigmaX: 18, sigmaY: 18),
+                        child: Container(
+                          width: 350,
+                          padding: EdgeInsets.all(28),
+                          decoration: BoxDecoration(
+                            gradient: const LinearGradient(
+                              begin: Alignment.topLeft,
+                              end: Alignment.bottomCenter,
+                              colors: [Colors.white60, Colors.white10],
                             ),
-                            inputFormatters: [
-                              FilteringTextInputFormatter.deny(RegExp(
-                                  r'^\s+|\s+$')), // Disallow leading/trailing spaces
+                            borderRadius: BorderRadius.circular(20),
+                            border: Border.all(
+                              color: const Color.fromARGB(80, 124, 124, 124),
+                              width: 2,
+                            ),
+                            boxShadow: [
+                              BoxShadow(
+                                color: Colors.black.withOpacity(0.1),
+                                blurRadius: 6,
+                                offset: Offset(0, 3),
+                              ),
                             ],
-                            onChanged: (value) {
-                              setState(() {
-                                _username =
-                                    value; // Allow copying but sanitize input
-                              });
-                            },
                           ),
-                          Divider(),
-                          // Country dropdown
-                          _isLoadingLocation
-                              ? Padding(
-                                  padding: EdgeInsets.symmetric(vertical: 10),
-                                  child: Center(
-                                    child: SizedBox(
-                                      height: 20,
-                                      width: 20,
-                                      child: CircularProgressIndicator(
-                                        strokeWidth: 2,
+                          child: Column(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Text(
+                                _isRegistering ? 'Sign Up' : 'Sign In',
+                                style: TextStyle(
+                                  fontSize: 28,
+                                  fontWeight: FontWeight.bold,
+                                  color: Colors.black87,
+                                  letterSpacing: 0.5,
+                                ),
+                              ),
+                              Vspace(18),
+                              Container(
+                                decoration: BoxDecoration(
+                                  // Gradient background for the text fields container
+                                  gradient: const LinearGradient(
+                                    begin: Alignment.topLeft,
+                                    end: Alignment.bottomCenter,
+                                    colors: [
+                                      Colors.white60,
+                                      Colors.white10,
+                                    ],
+                                  ),
+                                  borderRadius: BorderRadius.circular(16),
+                                  border: Border.all(
+                                      color: Colors.white.withOpacity(0.18)),
+                                ),
+                                padding: EdgeInsets.symmetric(
+                                    horizontal: 12, vertical: 8),
+                                child: Column(
+                                  children: [
+                                    if (_isRegistering)
+                                      Column(
+                                        children: [
+                                          // Username field with icon
+                                          Row(
+                                            children: [
+                                              Icon(Icons.person_outline,
+                                                  color: Colors.grey[600]),
+                                              SizedBox(width: 8),
+                                              Expanded(
+                                                child: TextField(
+                                                  decoration: InputDecoration(
+                                                    hintText: 'Username',
+                                                    border: InputBorder.none,
+                                                    // Make the field background transparent
+                                                    filled: true,
+                                                    fillColor:
+                                                        Colors.transparent,
+                                                  ),
+                                                  inputFormatters: [
+                                                    FilteringTextInputFormatter
+                                                        .deny(RegExp(
+                                                            r'^\s+|\s+$')),
+                                                  ],
+                                                  onChanged: (value) {
+                                                    setState(() {
+                                                      _username = value;
+                                                    });
+                                                  },
+                                                ),
+                                              ),
+                                            ],
+                                          ),
+                                          Divider(),
+                                          // Country dropdown
+                                          _isLoadingLocation
+                                              ? Padding(
+                                                  padding: EdgeInsets.symmetric(
+                                                      vertical: 10),
+                                                  child: Center(
+                                                    child: SizedBox(
+                                                      height: 20,
+                                                      width: 20,
+                                                      child:
+                                                          CircularProgressIndicator(
+                                                              strokeWidth: 2),
+                                                    ),
+                                                  ),
+                                                )
+                                              : Row(
+                                                  children: [
+                                                    Icon(Icons.public,
+                                                        color:
+                                                            Colors.grey[600]),
+                                                    SizedBox(width: 8),
+                                                    Expanded(
+                                                      child: Stack(
+                                                        children: [
+                                                          DropdownButtonHideUnderline(
+                                                            child:
+                                                                DropdownButton<
+                                                                    String>(
+                                                              isExpanded: true,
+                                                              hint: Text(
+                                                                  'Select Country'),
+                                                              value: _selectedCountry
+                                                                      .isEmpty
+                                                                  ? null
+                                                                  : _selectedCountry,
+                                                              items: _countries
+                                                                  .map(
+                                                                      (country) {
+                                                                return DropdownMenuItem<
+                                                                    String>(
+                                                                  value:
+                                                                      country,
+                                                                  child: Text(
+                                                                      country),
+                                                                );
+                                                              }).toList(),
+                                                              onChanged: null,
+                                                              // Disable default dropdown
+                                                            ),
+                                                          ),
+                                                          Positioned.fill(
+                                                            child: Material(
+                                                              color: Colors
+                                                                  .transparent,
+                                                              child: InkWell(
+                                                                borderRadius:
+                                                                    BorderRadius
+                                                                        .circular(
+                                                                            20),
+                                                                onTap:
+                                                                    () async {
+                                                                  String?
+                                                                      selected =
+                                                                      await showModalBottomSheet<
+                                                                          String>(
+                                                                    context:
+                                                                        context,
+                                                                    barrierColor:
+                                                                        Colors
+                                                                            .transparent,
+                                                                    backgroundColor:
+                                                                        Colors
+                                                                            .transparent,
+                                                                    isScrollControlled:
+                                                                        true,
+                                                                    builder:
+                                                                        (context) {
+                                                                      return Stack(
+                                                                        children: [
+                                                                          Positioned(
+                                                                            top:
+                                                                                0,
+                                                                            left:
+                                                                                0,
+                                                                            right:
+                                                                                0,
+                                                                            height:
+                                                                                30,
+                                                                            child:
+                                                                                Container(
+                                                                              decoration: const BoxDecoration(
+                                                                                boxShadow: [
+                                                                                  BoxShadow(
+                                                                                    color: Colors.black26,
+                                                                                    blurRadius: 30,
+                                                                                    spreadRadius: 5,
+                                                                                    offset: Offset(0, 10),
+                                                                                  ),
+                                                                                ],
+                                                                              ),
+                                                                            ),
+                                                                          ),
+                                                                          Container(
+                                                                            margin:
+                                                                                const EdgeInsets.only(top: 20),
+                                                                            child:
+                                                                                ClipRRect(
+                                                                              borderRadius: const BorderRadius.only(
+                                                                                topLeft: Radius.circular(20),
+                                                                                topRight: Radius.circular(20),
+                                                                              ),
+                                                                              child: BackdropFilter(
+                                                                                filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
+                                                                                child: Container(
+                                                                                  decoration: BoxDecoration(
+                                                                                    color: const Color.fromARGB(10, 124, 124, 124),
+                                                                                    border: Border.all(
+                                                                                      color: const Color.fromARGB(80, 124, 124, 124),
+                                                                                      width: 2,
+                                                                                    ),
+                                                                                    borderRadius: const BorderRadius.only(
+                                                                                      topLeft: Radius.circular(20),
+                                                                                      topRight: Radius.circular(20),
+                                                                                    ),
+                                                                                  ),
+                                                                                  child: Column(
+                                                                                    mainAxisSize: MainAxisSize.min,
+                                                                                    children: [
+                                                                                      Padding(
+                                                                                        padding: const EdgeInsets.symmetric(vertical: 12.0),
+                                                                                        child: Text(
+                                                                                          'Select Country',
+                                                                                          style: TextStyle(
+                                                                                            fontWeight: FontWeight.bold,
+                                                                                            fontSize: 18,
+                                                                                          ),
+                                                                                        ),
+                                                                                      ),
+                                                                                      Divider(height: 1),
+                                                                                      Flexible(
+                                                                                        child: ListView.builder(
+                                                                                          shrinkWrap: true,
+                                                                                          itemCount: _countries.length,
+                                                                                          itemBuilder: (context, index) {
+                                                                                            final country = _countries[index];
+                                                                                            return ListTile(
+                                                                                              title: Text(country),
+                                                                                              onTap: () {
+                                                                                                Navigator.pop(context, country);
+                                                                                              },
+                                                                                              selected: country == _selectedCountry,
+                                                                                              selectedTileColor: Colors.blue,
+                                                                                              shape: RoundedRectangleBorder(
+                                                                                                borderRadius: BorderRadius.circular(20),
+                                                                                              ),
+                                                                                            );
+                                                                                          },
+                                                                                        ),
+                                                                                      ),
+                                                                                      SizedBox(height: 12),
+                                                                                    ],
+                                                                                  ),
+                                                                                ),
+                                                                              ),
+                                                                            ),
+                                                                          ),
+                                                                        ],
+                                                                      );
+                                                                    },
+                                                                  );
+                                                                  if (selected !=
+                                                                      null) {
+                                                                    setState(
+                                                                        () {
+                                                                      _selectedCountry =
+                                                                          selected;
+                                                                    });
+                                                                  }
+                                                                },
+                                                              ),
+                                                            ),
+                                                          ),
+                                                        ],
+                                                      ),
+                                                    ),
+                                                  ],
+                                                ),
+                                          Divider(),
+                                        ],
+                                      ),
+                                    // Email field with icon
+                                    Row(
+                                      children: [
+                                        Icon(Icons.mail_outline,
+                                            color: Colors.grey[600]),
+                                        SizedBox(width: 8),
+                                        Expanded(
+                                          child: TextField(
+                                            decoration: InputDecoration(
+                                              hintText: 'Username or email',
+                                              border: InputBorder.none,
+                                              filled: true,
+                                              fillColor: Colors.transparent,
+                                            ),
+                                            inputFormatters: [
+                                              FilteringTextInputFormatter.deny(
+                                                  RegExp(r'^\s+|\s+$')),
+                                            ],
+                                            onChanged: (value) {
+                                              setState(() {
+                                                _email = value;
+                                              });
+                                            },
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                    Divider(),
+                                    // Password field with icon
+                                    Row(
+                                      children: [
+                                        Icon(Icons.lock_outline,
+                                            color: Colors.grey[600]),
+                                        SizedBox(width: 8),
+                                        Expanded(
+                                          child: TextField(
+                                            decoration: InputDecoration(
+                                              hintText: 'Password',
+                                              border: InputBorder.none,
+                                              filled: true,
+                                              fillColor: Colors.transparent,
+                                            ),
+                                            obscureText: true,
+                                            inputFormatters: [
+                                              FilteringTextInputFormatter.deny(
+                                                  RegExp(r'^\s+|\s+$')),
+                                            ],
+                                            onChanged: (value) {
+                                              setState(() {
+                                                _password = value;
+                                              });
+                                            },
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ],
+                                ),
+                              ),
+                              Vspace(10),
+                              // Show only one main button, and the toggle text + secondary button below the divider
+                              if (_isRegistering) ...[
+                                // Register mode: show Register button below, toggle text + Sign In button below divider
+                                Container(
+                                  decoration: BoxDecoration(
+                                    gradient: const LinearGradient(
+                                      begin: Alignment.centerLeft,
+                                      end: Alignment.centerRight,
+                                      colors: [
+                                        Colors.white10,
+                                        Colors.green,
+                                        Colors.white10,
+                                      ],
+                                    ),
+                                    borderRadius: BorderRadius.circular(24),
+                                    border: Border.all(
+                                      color: const Color.fromARGB(
+                                          80, 124, 124, 124),
+                                      width: 2,
+                                    ),
+                                    boxShadow: [
+                                      BoxShadow(
+                                        color: Colors.black.withOpacity(0.1),
+                                        blurRadius: 6,
+                                        offset: Offset(0, 3),
+                                      ),
+                                    ],
+                                  ),
+                                  margin: EdgeInsets.only(bottom: 10),
+                                  child: ElevatedButton(
+                                    onPressed: _register,
+                                    style: ElevatedButton.styleFrom(
+                                      backgroundColor: Colors.transparent,
+                                      shadowColor: Colors.transparent,
+                                      elevation: 0,
+                                      shape: RoundedRectangleBorder(
+                                        borderRadius: BorderRadius.circular(24),
+                                      ),
+                                      padding:
+                                          EdgeInsets.symmetric(vertical: 14),
+                                      minimumSize: Size(double.infinity, 0),
+                                    ),
+                                    child: Text(
+                                      "Register",
+                                      style: TextStyle(
+                                        fontSize: 18,
+                                        color: Colors.black,
+                                        fontWeight: FontWeight.bold,
                                       ),
                                     ),
                                   ),
-                                )
-                              : DropdownButtonHideUnderline(
-                                  child: DropdownButton<String>(
-                                    isExpanded: true,
-                                    hint: Text('Select Country'),
-                                    value: _selectedCountry.isEmpty
-                                        ? null
-                                        : _selectedCountry,
-                                    onChanged: (String? newValue) {
-                                      setState(() {
-                                        _selectedCountry = newValue!;
-                                      });
-                                    },
-                                    items: _countries
-                                        .map<DropdownMenuItem<String>>(
-                                            (String value) {
-                                      return DropdownMenuItem<String>(
-                                        value: value,
-                                        child: Text(value),
-                                      );
-                                    }).toList(),
+                                ),
+                              ] else ...[
+                                // Sign In mode: show Sign In button below, toggle text + Register button below divider
+                                Container(
+                                  decoration: BoxDecoration(
+                                    gradient: const LinearGradient(
+                                      begin: Alignment.centerLeft,
+                                      end: Alignment.centerRight,
+                                      colors: [
+                                        Colors.white10,
+                                        Colors.blue,
+                                        Colors.white10,
+                                      ],
+                                    ),
+                                    borderRadius: BorderRadius.circular(24),
+                                    border: Border.all(
+                                      color: const Color.fromARGB(
+                                          80, 124, 124, 124),
+                                      width: 2,
+                                    ),
+                                    boxShadow: [
+                                      BoxShadow(
+                                        color: Colors.black.withOpacity(0.1),
+                                        blurRadius: 6,
+                                        offset: Offset(0, 3),
+                                      ),
+                                    ],
+                                  ),
+                                  margin: EdgeInsets.only(bottom: 10),
+                                  child: ElevatedButton(
+                                    onPressed: _login,
+                                    style: ElevatedButton.styleFrom(
+                                      backgroundColor: Colors.transparent,
+                                      shadowColor: Colors.transparent,
+                                      elevation: 0,
+                                      shape: RoundedRectangleBorder(
+                                        borderRadius: BorderRadius.circular(24),
+                                      ),
+                                      padding:
+                                          EdgeInsets.symmetric(vertical: 14),
+                                      minimumSize: Size(double.infinity, 0),
+                                    ),
+                                    child: Text(
+                                      "Sign In",
+                                      style: TextStyle(
+                                        fontSize: 18,
+                                        color: Colors.black,
+                                        fontWeight: FontWeight.bold,
+                                      ),
+                                    ),
                                   ),
                                 ),
-                          Divider(),
-                        ],
+                              ],
+                              Vspace(14),
+                              // Divider with "Or"
+                              Row(
+                                children: [
+                                  Expanded(
+                                      child: Divider(
+                                          color: Colors.grey[400],
+                                          thickness: 1)),
+                                  Padding(
+                                    padding:
+                                        EdgeInsets.symmetric(horizontal: 8),
+                                    child: Text(
+                                      'Or',
+                                      style: TextStyle(
+                                          color: Colors.grey[700],
+                                          fontWeight: FontWeight.w500),
+                                    ),
+                                  ),
+                                  Expanded(
+                                      child: Divider(
+                                          color: Colors.grey[400],
+                                          thickness: 1)),
+                                ],
+                              ),
+                              Vspace(10),
+                              // Toggle text and secondary button below the divider
+                              if (_isRegistering) ...[
+                                // Not clickable, smaller, no underline
+                                Text(
+                                  "Already have an account? Sign In",
+                                  style: TextStyle(
+                                    color: Colors.black,
+                                    fontWeight: FontWeight.normal,
+                                    fontSize: 13,
+                                    decoration: TextDecoration.none,
+                                  ),
+                                ),
+                                Vspace(10),
+                                Container(
+                                  decoration: BoxDecoration(
+                                    gradient: const LinearGradient(
+                                      begin: Alignment.centerLeft,
+                                      end: Alignment.centerRight,
+                                      colors: [
+                                        Colors.white10,
+                                        Colors.blue,
+                                        Colors.white10,
+                                      ],
+                                    ),
+                                    borderRadius: BorderRadius.circular(24),
+                                    border: Border.all(
+                                      color: const Color.fromARGB(
+                                          80, 124, 124, 124),
+                                      width: 2,
+                                    ),
+                                    boxShadow: [
+                                      BoxShadow(
+                                        color: Colors.black.withOpacity(0.1),
+                                        blurRadius: 6,
+                                        offset: Offset(0, 3),
+                                      ),
+                                    ],
+                                  ),
+                                  child: ElevatedButton(
+                                    onPressed: () {
+                                      setState(() {
+                                        _isRegistering = false;
+                                      });
+                                    },
+                                    style: ElevatedButton.styleFrom(
+                                      backgroundColor: Colors.transparent,
+                                      shadowColor: Colors.transparent,
+                                      elevation: 0,
+                                      shape: RoundedRectangleBorder(
+                                        borderRadius: BorderRadius.circular(24),
+                                      ),
+                                      padding:
+                                          EdgeInsets.symmetric(vertical: 14),
+                                      minimumSize: Size(double.infinity, 0),
+                                    ),
+                                    child: Text(
+                                      "Sign In",
+                                      style: TextStyle(
+                                        fontSize: 18,
+                                        color: Colors.black,
+                                        fontWeight: FontWeight.bold,
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                              ] else ...[
+                                Text(
+                                  "Don't have an account? Register",
+                                  style: TextStyle(
+                                    color: Colors.black,
+                                    fontWeight: FontWeight.normal,
+                                    fontSize: 13,
+                                    decoration: TextDecoration.none,
+                                  ),
+                                ),
+                                Vspace(10),
+                                Container(
+                                  decoration: BoxDecoration(
+                                    gradient: const LinearGradient(
+                                      begin: Alignment.centerLeft,
+                                      end: Alignment.centerRight,
+                                      colors: [
+                                        Colors.white10,
+                                        Colors.green,
+                                        Colors.white10,
+                                      ],
+                                    ),
+                                    borderRadius: BorderRadius.circular(24),
+                                    border: Border.all(
+                                      color: const Color.fromARGB(
+                                          80, 124, 124, 124),
+                                      width: 2,
+                                    ),
+                                    boxShadow: [
+                                      BoxShadow(
+                                        color: Colors.black.withOpacity(0.1),
+                                        blurRadius: 6,
+                                        offset: Offset(0, 3),
+                                      ),
+                                    ],
+                                  ),
+                                  child: ElevatedButton(
+                                    onPressed: () {
+                                      setState(() {
+                                        _isRegistering = true;
+                                      });
+                                    },
+                                    style: ElevatedButton.styleFrom(
+                                      backgroundColor: Colors.transparent,
+                                      shadowColor: Colors.transparent,
+                                      elevation: 0,
+                                      shape: RoundedRectangleBorder(
+                                        borderRadius: BorderRadius.circular(24),
+                                      ),
+                                      padding:
+                                          EdgeInsets.symmetric(vertical: 14),
+                                      minimumSize: Size(double.infinity, 0),
+                                    ),
+                                    child: Text(
+                                      "Register",
+                                      style: TextStyle(
+                                        fontSize: 18,
+                                        color: Colors.black,
+                                        fontWeight: FontWeight.bold,
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ],
+                          ),
+                        ),
                       ),
-                    TextField(
-                      decoration: InputDecoration(
-                        hintText: 'Email',
-                        border: InputBorder.none,
-                      ),
-                      inputFormatters: [
-                        FilteringTextInputFormatter.deny(RegExp(
-                            r'^\s+|\s+$')), // Disallow leading/trailing spaces
-                      ],
-                      onChanged: (value) {
-                        setState(() {
-                          _email = value; // Allow copying but sanitize input
-                        });
-                      },
                     ),
-                    Divider(),
-                    TextField(
-                      decoration: InputDecoration(
-                        hintText: 'Password',
-                        border: InputBorder.none,
-                      ),
-                      obscureText: true,
-                      inputFormatters: [
-                        FilteringTextInputFormatter.deny(RegExp(
-                            r'^\s+|\s+$')), // Disallow leading/trailing spaces
-                      ],
-                      onChanged: (value) {
-                        setState(() {
-                          _password = value; // Allow copying but sanitize input
-                        });
-                      },
-                    ),
-                  ],
-                ),
-              ),
-              Vspace(20),
-              ElevatedButton(
-                onPressed: _isRegistering ? _register : _login,
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: Color(0xFF0066FF),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(24),
                   ),
-                  padding: EdgeInsets.symmetric(vertical: 12, horizontal: 24),
-                ),
-                child: Text(
-                  _isRegistering ? 'Sign up' : 'Login',
-                  style: TextStyle(fontSize: 16, color: Colors.white),
-                ),
-              ),
-              Vspace(12),
-              TextButton(
-                onPressed: () {
-                  setState(() {
-                    _isRegistering = !_isRegistering;
-                  });
-                },
-                child: Text(
-                  _isRegistering
-                      ? 'Already have an account? Log in'
-                      : 'Don\'t have an account? Sign up',
-                  style: TextStyle(
-                    color: Color(0xFF0066FF),
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-              ),
-            ],
-          ),
-        ),
+                ],
+              );
+            },
+          );
+        },
       ),
     );
+  }
+}
+
+// Replace the _ShaderBackgroundPainter with ShaderPainter
+class ShaderPainter extends CustomPainter {
+  final FragmentProgram program;
+  final double time;
+
+  ShaderPainter({required this.program, required this.time});
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final shader = program.fragmentShader();
+
+    shader.setFloat(0, size.width); // iResolution.x
+    shader.setFloat(1, size.height); // iResolution.y
+    shader.setFloat(2, time); // iTime
+
+    // colorPrimary: deep blue
+    shader.setFloat(3, 0.0); // R
+    shader.setFloat(4, 0.2); // G
+    shader.setFloat(5, 0.8); // B
+
+    // colorAccent: lighter blue
+    shader.setFloat(6, 0.4); // R
+    shader.setFloat(7, 0.7); // G
+    shader.setFloat(8, 1.0); // B
+
+    // colorBlend: soft green (Color(0xFF71CD8C) ~ rgb(113, 205, 140))
+    shader.setFloat(9, 113 / 255); // R
+    shader.setFloat(10, 205 / 255); // G
+    shader.setFloat(11, 140 / 255); // B
+
+    final paint = Paint()..shader = shader;
+    canvas.drawRect(Offset.zero & size, paint);
+  }
+
+  @override
+  bool shouldRepaint(covariant ShaderPainter oldDelegate) {
+    return oldDelegate.time != time;
   }
 }

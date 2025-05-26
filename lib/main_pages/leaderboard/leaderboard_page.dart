@@ -14,17 +14,39 @@ class LeaderboardPage extends StatefulWidget {
 }
 
 class _LeaderboardPageState extends State<LeaderboardPage>
-    with SingleTickerProviderStateMixin {
+    with TickerProviderStateMixin {
   String searchQuery = '';
   String sortBy = 'level';
   late AnimationController _filterController;
+  AnimationController? _searchAnimationController; // Add for search icon
+  final FocusNode _searchFocusNode = FocusNode(); // Add for search bar focus
   String? currentUserLocation;
 
   @override
   void initState() {
     super.initState();
     _filterController = AnimationController(vsync: this);
+    _searchAnimationController = AnimationController(
+      vsync: this,
+      duration: const Duration(
+          milliseconds: 800), // Default, will be updated by Lottie
+    );
+    _searchFocusNode.addListener(_onSearchFocusChange);
     _fetchCurrentUserLocation();
+  }
+
+  void _onSearchFocusChange() {
+    if (_searchFocusNode.hasFocus) {
+      if (_searchAnimationController != null) {
+        _searchAnimationController!.forward(from: 0.25);
+        _searchAnimationController!.repeat(min: 0.25);
+      }
+    } else {
+      if (_searchAnimationController != null) {
+        _searchAnimationController!.stop();
+        _searchAnimationController!.reset();
+      }
+    }
   }
 
   Future<void> _fetchCurrentUserLocation() async {
@@ -48,24 +70,37 @@ class _LeaderboardPageState extends State<LeaderboardPage>
   @override
   void dispose() {
     _filterController.dispose();
+    _searchAnimationController?.dispose();
+    _searchFocusNode.dispose();
     super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        forceMaterialTransparency: true,
-        title: Text('Leaderboard'),
-        centerTitle: true,
-      ),
+      backgroundColor: Colors.transparent,
       body: Column(
         children: [
           // Weekly Top 5 Section
           _buildWeeklyTopSection(),
 
+          Container(
+            height: 4,
+            decoration: BoxDecoration(
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withOpacity(0.1),
+                  blurRadius: 30,
+                  spreadRadius: 10,
+                  offset: Offset(0, 0),
+                ),
+              ],
+            ),
+          ),
+
           Divider(thickness: 1, color: Colors.grey.withOpacity(0.3)),
 
+          // --- REPLACED SEARCH BAR WITH ANIMATED VERSION ---
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 16.0),
             child: Row(
@@ -78,7 +113,11 @@ class _LeaderboardPageState extends State<LeaderboardPage>
                       child: Container(
                         height: 36,
                         decoration: BoxDecoration(
-                          color: Colors.white.withOpacity(0.2),
+                          gradient: const LinearGradient(
+                            begin: Alignment.topLeft,
+                            end: Alignment.bottomCenter,
+                            colors: [Colors.white60, Colors.white10],
+                          ),
                           border: Border.all(
                             color: const Color.fromARGB(80, 124, 124, 124),
                             width: 2,
@@ -87,25 +126,55 @@ class _LeaderboardPageState extends State<LeaderboardPage>
                           boxShadow: [
                             BoxShadow(
                               color: Colors.black.withOpacity(0.1),
-                              spreadRadius: 3,
-                              blurRadius: 10,
-                              offset: Offset(0, 10),
+                              blurRadius: 6,
+                              offset: Offset(0, 3),
                             ),
                           ],
                         ),
                         child: TextField(
+                          focusNode: _searchFocusNode,
+                          autofocus: false,
+                          onTap: () {
+                            if (_searchAnimationController != null) {
+                              _searchAnimationController!.forward(from: 0.25);
+                              _searchAnimationController!.repeat(min: 0.25);
+                            }
+                          },
                           decoration: InputDecoration(
                             hintText: 'Search for users...',
-                            prefixIcon: Icon(Icons.search, size: 20),
+                            prefixIcon: Padding(
+                              padding: EdgeInsets.only(bottom: 5.0),
+                              child: SizedBox(
+                                width: 44,
+                                height: 44,
+                                child: Lottie.asset(
+                                  'assets/animations/search.json',
+                                  controller: _searchAnimationController,
+                                  onLoaded: (composition) {
+                                    if (_searchAnimationController != null) {
+                                      _searchAnimationController!.duration =
+                                          composition.duration;
+                                      if (_searchFocusNode.hasFocus) {
+                                        _searchAnimationController!
+                                            .forward(from: 0.25);
+                                        _searchAnimationController!
+                                            .repeat(min: 0.25);
+                                      }
+                                    }
+                                  },
+                                  repeat: false,
+                                ),
+                              ),
+                            ),
                             filled: true,
-                            fillColor: Colors.transparent,
+                            fillColor: Colors.white.withOpacity(0.2),
                             contentPadding: EdgeInsets.symmetric(vertical: 0),
                             border: OutlineInputBorder(
                               borderRadius: BorderRadius.circular(20),
                               borderSide: BorderSide.none,
                             ),
                           ),
-                          style: TextStyle(fontSize: 12),
+                          style: TextStyle(fontSize: 14),
                           onChanged: (value) {
                             setState(() {
                               searchQuery = value.toLowerCase();
@@ -116,9 +185,7 @@ class _LeaderboardPageState extends State<LeaderboardPage>
                     ),
                   ),
                 ),
-                SizedBox(
-                    width:
-                        16), // Adjusted spacing between search and filter button
+                Hspace(16),
                 GestureDetector(
                   onTap: () {
                     _filterController.reset();
@@ -222,16 +289,28 @@ class _LeaderboardPageState extends State<LeaderboardPage>
                     );
                   },
                   child: Container(
-                    width: 32,
-                    height: 32,
+                    width: 36,
+                    height: 36,
                     decoration: BoxDecoration(
-                      color: Colors.black.withOpacity(0.1),
-                      borderRadius: BorderRadius.circular(50),
+                      gradient: const LinearGradient(
+                        begin: Alignment.topLeft,
+                        end: Alignment.bottomCenter,
+                        colors: [
+                          Color.fromRGBO(255, 255, 255, 0.6),
+                          Colors.white10
+                        ],
+                      ),
+                      border: Border.all(
+                        color: const Color.fromARGB(80, 124, 124, 124),
+                        width: 2,
+                      ),
+                      borderRadius: BorderRadius.circular(20),
                       boxShadow: [
                         BoxShadow(
-                          color: Colors.black.withOpacity(0.2),
-                          blurRadius: 4,
-                          offset: Offset(0, 2),
+                          color:
+                              Colors.black.withOpacity(0.1), // Add light shadow
+                          blurRadius: 6,
+                          offset: Offset(0, 3),
                         ),
                       ],
                     ),
@@ -253,6 +332,8 @@ class _LeaderboardPageState extends State<LeaderboardPage>
               ],
             ),
           ),
+          // --- END REPLACEMENT ---
+
           Vspace(16),
           // All-Time Leaderboard
           Padding(
@@ -322,61 +403,252 @@ class _LeaderboardPageState extends State<LeaderboardPage>
                   itemCount: leaderboardData.length,
                   itemBuilder: (context, index) {
                     final entry = leaderboardData[index];
-                    return Card(
-                      margin: EdgeInsets.symmetric(vertical: 8, horizontal: 16),
-                      elevation: 4,
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(10),
-                      ),
-                      child: ListTile(
-                        leading: Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            Text('${entry['rank']}',
-                                style: TextStyle(fontWeight: FontWeight.bold)),
-                            SizedBox(width: 8),
-                            CircleAvatar(
-                              backgroundImage:
-                                  (entry['profile_picture'] != null &&
-                                          entry['profile_picture']
-                                              .toString()
-                                              .isNotEmpty)
-                                      ? NetworkImage(entry['profile_picture'])
-                                      : null,
-                              child: (entry['profile_picture'] == null ||
-                                      entry['profile_picture']
-                                          .toString()
-                                          .isEmpty)
-                                  ? Icon(Icons.person, color: Colors.grey)
-                                  : null,
+                    return Padding(
+                      padding:
+                          EdgeInsets.symmetric(vertical: 8, horizontal: 16),
+                      child: Stack(
+                        alignment: Alignment.center,
+                        children: [
+                          // Shadow beneath the card, spreading out and not clipped
+                          Positioned.fill(
+                            child: Container(
+                              margin: EdgeInsets.symmetric(
+                                  vertical: 8, horizontal: 0),
+                              decoration: BoxDecoration(
+                                borderRadius: BorderRadius.circular(
+                                    28), // slightly larger than card
+                                boxShadow: [
+                                  BoxShadow(
+                                    color: Colors.black.withOpacity(0.1),
+                                    blurRadius: 10,
+                                    spreadRadius: 2,
+                                    offset: Offset(0, 12),
+                                  ),
+                                ],
+                              ),
                             ),
-                          ],
-                        ),
-                        title: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(entry['username'],
-                                style: TextStyle(fontWeight: FontWeight.bold)),
-                            Text('(${entry['location'] ?? 'Unknown'})',
-                                style: TextStyle(
-                                    fontSize: 12, color: Colors.grey)),
-                          ],
-                        ),
-                        trailing: Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            Icon(Icons.keyboard_double_arrow_up_rounded,
-                                color: Colors.green, size: 16),
-                            SizedBox(width: 4),
-                            Text('Lvl ${entry['level']}',
-                                style: TextStyle(
-                                    fontWeight: FontWeight.bold,
-                                    color: Colors.blue)),
-                            SizedBox(width: 8),
-                            Text('${entry['wallet_balance']} ⭐',
-                                style: TextStyle(color: Colors.green)),
-                          ],
-                        ),
+                          ),
+                          ClipRRect(
+                            borderRadius: BorderRadius.circular(20),
+                            child: BackdropFilter(
+                              filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
+                              child: Container(
+                                decoration: BoxDecoration(
+                                  gradient: const LinearGradient(
+                                    begin: Alignment.topLeft,
+                                    end: Alignment.bottomCenter,
+                                    colors: [Color(0xFF71CD8C), Colors.white30],
+                                  ),
+                                  border: Border.all(
+                                    color:
+                                        const Color.fromARGB(80, 124, 124, 124),
+                                    width: 2,
+                                  ),
+                                  borderRadius: BorderRadius.circular(20),
+                                  // Remove boxShadow here to avoid double shadow
+                                ),
+                                child: ListTile(
+                                  leading: Row(
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: [
+                                      Text('${entry['rank']}',
+                                          style: TextStyle(
+                                              fontWeight: FontWeight.bold)),
+                                      SizedBox(width: 8),
+                                      CircleAvatar(
+                                        backgroundImage:
+                                            (entry['profile_picture'] != null &&
+                                                    entry['profile_picture']
+                                                        .toString()
+                                                        .isNotEmpty)
+                                                ? NetworkImage(
+                                                    entry['profile_picture'])
+                                                : null,
+                                        child:
+                                            (entry['profile_picture'] == null ||
+                                                    entry['profile_picture']
+                                                        .toString()
+                                                        .isEmpty)
+                                                ? Icon(Icons.person,
+                                                    color: Colors.grey)
+                                                : null,
+                                      ),
+                                    ],
+                                  ),
+                                  title: Column(
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
+                                    children: [
+                                      Text(entry['username'],
+                                          style: TextStyle(
+                                              fontWeight: FontWeight.bold)),
+                                      Text(
+                                          '(${entry['location'] ?? 'Unknown'})',
+                                          style: TextStyle(
+                                              fontSize: 12,
+                                              color: Colors.grey)),
+                                    ],
+                                  ),
+                                  trailing: Row(
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: [
+                                      // --- Level Container (mini style) with shadow ---
+                                      Container(
+                                        width: 54,
+                                        height: 50,
+                                        margin: EdgeInsets.only(right: 6),
+                                        child: Stack(
+                                          children: [
+                                            // Shadow
+                                            Positioned(
+                                              left: 4,
+                                              right: 4,
+                                              bottom: 2,
+                                              child: Container(
+                                                height: 12,
+                                                decoration: BoxDecoration(
+                                                  borderRadius:
+                                                      BorderRadius.circular(8),
+                                                  boxShadow: [
+                                                    BoxShadow(
+                                                      color: Colors.black
+                                                          .withOpacity(0.18),
+                                                      blurRadius: 10,
+                                                      spreadRadius: 1,
+                                                      offset: Offset(0, 4),
+                                                    ),
+                                                  ],
+                                                ),
+                                              ),
+                                            ),
+                                            // Actual container
+                                            Positioned.fill(
+                                              child: Container(
+                                                decoration: BoxDecoration(
+                                                  borderRadius:
+                                                      BorderRadius.circular(8),
+                                                  border: Border.all(
+                                                    color: const Color.fromARGB(
+                                                        80, 124, 124, 124),
+                                                    width: 1.2,
+                                                  ),
+                                                  gradient:
+                                                      const LinearGradient(
+                                                    colors: [
+                                                      Color.fromARGB(
+                                                          213, 113, 205, 141),
+                                                      Color.fromARGB(
+                                                          255, 48, 172, 85)
+                                                    ],
+                                                    begin: Alignment.topLeft,
+                                                    end: Alignment.bottomRight,
+                                                  ),
+                                                ),
+                                                child: Column(
+                                                  mainAxisAlignment:
+                                                      MainAxisAlignment.center,
+                                                  children: [
+                                                    Icon(
+                                                        Icons
+                                                            .keyboard_double_arrow_up_rounded,
+                                                        color: Colors.white,
+                                                        size: 18),
+                                                    Text(
+                                                      "Lvl ${entry['level']}",
+                                                      style: TextStyle(
+                                                          fontSize: 12,
+                                                          fontWeight:
+                                                              FontWeight.bold,
+                                                          color: Colors.white),
+                                                    ),
+                                                  ],
+                                                ),
+                                              ),
+                                            ),
+                                          ],
+                                        ),
+                                      ),
+                                      // --- Points Container (mini style) with shadow ---
+                                      Container(
+                                        width: 54,
+                                        height: 50,
+                                        child: Stack(
+                                          children: [
+                                            // Shadow
+                                            Positioned(
+                                              left: 4,
+                                              right: 4,
+                                              bottom: 2,
+                                              child: Container(
+                                                height: 12,
+                                                decoration: BoxDecoration(
+                                                  borderRadius:
+                                                      BorderRadius.circular(8),
+                                                  boxShadow: [
+                                                    BoxShadow(
+                                                      color: Colors.black
+                                                          .withOpacity(0.18),
+                                                      blurRadius: 10,
+                                                      spreadRadius: 1,
+                                                      offset: Offset(0, 4),
+                                                    ),
+                                                  ],
+                                                ),
+                                              ),
+                                            ),
+                                            // Actual container
+                                            Positioned.fill(
+                                              child: Container(
+                                                decoration: BoxDecoration(
+                                                  borderRadius:
+                                                      BorderRadius.circular(8),
+                                                  border: Border.all(
+                                                    color: const Color.fromARGB(
+                                                        80, 124, 124, 124),
+                                                    width: 1.2,
+                                                  ),
+                                                  gradient:
+                                                      const LinearGradient(
+                                                    colors: [
+                                                      Colors.blue,
+                                                      Color.fromARGB(
+                                                          255, 162, 221, 255)
+                                                    ],
+                                                    begin: Alignment.topLeft,
+                                                    end: Alignment.bottomRight,
+                                                  ),
+                                                ),
+                                                child: Column(
+                                                  mainAxisAlignment:
+                                                      MainAxisAlignment.center,
+                                                  children: [
+                                                    Icon(
+                                                        Icons
+                                                            .account_balance_wallet_rounded,
+                                                        size: 18,
+                                                        color: Colors.white),
+                                                    Text(
+                                                      '${entry['wallet_balance']}',
+                                                      style: TextStyle(
+                                                          fontSize: 12,
+                                                          fontWeight:
+                                                              FontWeight.bold,
+                                                          color: Colors.white),
+                                                    ),
+                                                  ],
+                                                ),
+                                              ),
+                                            ),
+                                          ],
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ),
+                        ],
                       ),
                     );
                   },
@@ -483,99 +755,203 @@ class _LeaderboardPageState extends State<LeaderboardPage>
                     medalIcon = Icons.emoji_events;
                   } else if (index == 1) {
                     medalColor =
-                        const Color.fromARGB(255, 214, 214, 214)!; // Silver
+                        const Color.fromARGB(255, 214, 214, 214); // Silver
                     medalIcon = Icons.emoji_events;
                   } else if (index == 2) {
                     medalColor =
-                        const Color.fromARGB(255, 182, 124, 106)!; // Bronze
+                        const Color.fromARGB(255, 182, 124, 106); // Bronze
                     medalIcon = Icons.emoji_events;
                   } else {
                     medalColor = Colors.blue[100]!; // Other positions
                     medalIcon = Icons.stars;
                   }
 
-                  return Container(
-                    width: 120,
-                    margin: EdgeInsets.symmetric(horizontal: 6, vertical: 4),
-                    decoration: BoxDecoration(
-                      color: Colors.white,
-                      borderRadius: BorderRadius.circular(10),
-                      boxShadow: [
-                        BoxShadow(
-                          color: Colors.black.withOpacity(0.1),
-                          blurRadius: 4,
-                          offset: Offset(0, 2),
-                        ),
+                  // Gradient backgrounds for top 3 and blue for 4th/5th
+                  Gradient? cardGradient;
+                  if (index == 0) {
+                    cardGradient = const LinearGradient(
+                      colors: [
+                        Color(0xFFFFE066), // bright yellow
+                        Color(0x8FFFFFFF), // light
+                        Color(0xFFFFE066), // bright yellow
+                        Color(0xFFFFC300), // deep yellow
                       ],
-                    ),
-                    child: Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        Stack(
-                          alignment: Alignment.bottomRight,
-                          children: [
-                            CircleAvatar(
-                              radius: 35,
-                              backgroundImage:
-                                  (user['profile_picture'] != null &&
-                                          user['profile_picture']
-                                              .toString()
-                                              .isNotEmpty)
-                                      ? NetworkImage(user['profile_picture'])
-                                      : null,
-                              child: (user['profile_picture'] == null ||
-                                      user['profile_picture']
-                                          .toString()
-                                          .isEmpty)
-                                  ? Icon(Icons.person,
-                                      size: 35, color: Colors.grey)
-                                  : null,
+                      begin: Alignment.topLeft,
+                      end: Alignment.bottomRight,
+                    );
+                  } else if (index == 1) {
+                    cardGradient = const LinearGradient(
+                      colors: [
+                        Color(0xFFBDBDBD), // deep silver
+                        Color(0x8FFFFFFF), // light
+                        Color(0xFFE0E0E0), // light silver
+                        Color(0xFFBDBDBD), // deep silver
+                      ],
+                      begin: Alignment.topLeft,
+                      end: Alignment.bottomRight,
+                    );
+                  } else if (index == 2) {
+                    cardGradient = const LinearGradient(
+                      colors: [
+                        Color(0xFFD7B899), // light bronze
+                        Color(0x8FFFFFFF), // light
+                        Color(0xFFD7B899), // light bronze
+                        Color(0xFFB97A56), // deep bronze
+                      ],
+                      begin: Alignment.topLeft,
+                      end: Alignment.bottomRight,
+                    );
+                  } else if (index == 3 || index == 4) {
+                    cardGradient = LinearGradient(
+                      colors: [
+                        Color.fromARGB(143, 255, 255, 255),
+                        const Color(0xFFBBDEFB),
+                      ],
+                      begin: Alignment.topCenter,
+                      end: Alignment.bottomCenter,
+                    );
+                  } else {
+                    cardGradient = const LinearGradient(
+                      begin: Alignment.topLeft,
+                      end: Alignment.bottomCenter,
+                      colors: [Colors.white60, Colors.white10],
+                    );
+                  }
+
+                  return Padding(
+                    padding: EdgeInsets.symmetric(horizontal: 6, vertical: 4),
+                    child: ClipRRect(
+                      borderRadius: BorderRadius.circular(20),
+                      child: BackdropFilter(
+                        filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
+                        child: Container(
+                          width: 120,
+                          decoration: BoxDecoration(
+                            gradient: cardGradient,
+                            border: Border.all(
+                              color: const Color.fromARGB(80, 124, 124, 124),
+                              width: 2,
                             ),
-                            Container(
-                              padding: EdgeInsets.all(4),
-                              decoration: BoxDecoration(
-                                color: medalColor,
-                                shape: BoxShape.circle,
-                                border:
-                                    Border.all(color: Colors.white, width: 2),
+                            borderRadius: BorderRadius.circular(20),
+                            boxShadow: [
+                              BoxShadow(
+                                color: Colors.black.withOpacity(0.1),
+                                blurRadius: 4,
+                                offset: Offset(0, 2),
                               ),
-                              child: Text(
-                                '${index + 1}',
-                                style: TextStyle(
-                                  color: Colors.white,
-                                  fontWeight: FontWeight.bold,
-                                  fontSize: 12,
-                                ),
-                              ),
-                            ),
-                          ],
-                        ),
-                        SizedBox(height: 8),
-                        Text(
-                          '${user['username']}',
-                          style: TextStyle(
-                            fontWeight: FontWeight.bold,
-                            fontSize: 14,
+                            ],
                           ),
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                        SizedBox(height: 4),
-                        Row(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            Icon(Icons.star, size: 16, color: Colors.amber),
-                            SizedBox(width: 4),
-                            Text(
-                              '${user['wallet_balance']}',
-                              style: TextStyle(
-                                fontSize: 12,
-                                color: Colors.green[700],
-                                fontWeight: FontWeight.w500,
+                          child: Column(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              Stack(
+                                alignment: Alignment.bottomRight,
+                                children: [
+                                  // Add shadow behind the image
+                                  Container(
+                                    width: 70,
+                                    height: 70,
+                                    decoration: BoxDecoration(
+                                      shape: BoxShape.circle,
+                                      boxShadow: [
+                                        BoxShadow(
+                                          color: Colors.black.withOpacity(0.18),
+                                          blurRadius: 16,
+                                          spreadRadius: 2,
+                                          offset: Offset(0, 6),
+                                        ),
+                                      ],
+                                    ),
+                                    child: CircleAvatar(
+                                      radius: 35,
+                                      backgroundImage:
+                                          (user['profile_picture'] != null &&
+                                                  user['profile_picture']
+                                                      .toString()
+                                                      .isNotEmpty)
+                                              ? NetworkImage(
+                                                  user['profile_picture'])
+                                              : null,
+                                      child: (user['profile_picture'] == null ||
+                                              user['profile_picture']
+                                                  .toString()
+                                                  .isEmpty)
+                                          ? Icon(Icons.person,
+                                              size: 35, color: Colors.grey)
+                                          : null,
+                                    ),
+                                  ),
+                                  Container(
+                                    padding: EdgeInsets.all(4),
+                                    decoration: BoxDecoration(
+                                      color: medalColor,
+                                      shape: BoxShape.circle,
+                                      border: Border.all(
+                                          color: Colors.white, width: 2),
+                                    ),
+                                    child: Text(
+                                      '${index + 1}',
+                                      style: TextStyle(
+                                        color: Colors.white,
+                                        fontWeight: FontWeight.bold,
+                                        fontSize: 12,
+                                      ),
+                                    ),
+                                  ),
+                                ],
                               ),
-                            ),
-                          ],
+                              SizedBox(height: 8),
+                              Text(
+                                '${user['username']}',
+                                style: TextStyle(
+                                  fontWeight: FontWeight.bold,
+                                  fontSize: 14,
+                                  shadows: [
+                                    Shadow(
+                                      color: Colors.black.withOpacity(0.18),
+                                      blurRadius: 8,
+                                      offset: Offset(0, 2),
+                                    ),
+                                  ],
+                                ),
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                              SizedBox(height: 4),
+                              Row(
+                                mainAxisAlignment: MainAxisAlignment.center,
+                                children: [
+                                  Icon(Icons.star,
+                                      size: 16,
+                                      color: Colors.amber,
+                                      shadows: [
+                                        Shadow(
+                                          color: Colors.black.withOpacity(0.18),
+                                          blurRadius: 8,
+                                          offset: Offset(0, 2),
+                                        ),
+                                      ]),
+                                  SizedBox(width: 4),
+                                  Text(
+                                    '${user['wallet_balance']}',
+                                    style: TextStyle(
+                                      fontSize: 12,
+                                      color: Colors.black,
+                                      fontWeight: FontWeight.w500,
+                                      shadows: [
+                                        Shadow(
+                                          color: Colors.black.withOpacity(0.18),
+                                          blurRadius: 8,
+                                          offset: Offset(0, 2),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ],
+                          ),
                         ),
-                      ],
+                      ),
                     ),
                   );
                 },

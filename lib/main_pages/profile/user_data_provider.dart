@@ -304,4 +304,16 @@ class ProfileController {
   String? getCurrentUserId() {
     return _auth.currentUser?.uid;
   }
+
+  Stream<String> usernameStream() {
+    final user = _auth.currentUser;
+    if (user != null) {
+      return _firestore
+          .collection('users')
+          .doc(user.uid)
+          .snapshots()
+          .map((snapshot) => snapshot.data()?['username'] ?? 'New User');
+    }
+    return Stream.value('Not logged in');
+  }
 }

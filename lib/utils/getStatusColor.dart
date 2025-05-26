@@ -1,23 +1,50 @@
 import 'dart:ui';
-
 import 'package:flutter/material.dart';
 
-Color getStatusColor(String status) {
+// Returns a LinearGradient for each status, or null for transparent/default.
+LinearGradient? getStatusColor(String status) {
   switch (status.toLowerCase()) {
     case 'soon':
-      return Colors.grey[300]!;
+      return LinearGradient(
+        colors: [Colors.grey[300]!, Colors.grey[400]!],
+        begin: Alignment.topLeft,
+        end: Alignment.bottomRight,
+      );
     case 'awaiting':
-      return Colors.blue;
+      return LinearGradient(
+        colors: [Colors.blue[300]!, Colors.blue[700]!],
+        begin: Alignment.topLeft,
+        end: Alignment.bottomRight,
+      );
     case 'active':
-      return Colors.green;
+      return LinearGradient(
+        colors: [
+          Color.fromARGB(213, 113, 205, 141), // #71CD8C with alpha
+          Color(0xFF71CD8C)
+        ],
+        begin: Alignment.topLeft,
+        end: Alignment.bottomRight,
+      );
     case 'ended':
-      return Colors.orange;
+      return LinearGradient(
+        colors: [Colors.orange[300]!, Colors.orange[700]!],
+        begin: Alignment.topLeft,
+        end: Alignment.bottomRight,
+      );
     case 'overdue':
-      return Colors.red;
+      return LinearGradient(
+        colors: [Colors.red[300]!, Colors.red[700]!],
+        begin: Alignment.topLeft,
+        end: Alignment.bottomRight,
+      );
     case 'absent':
     case 'participated':
-      return Colors.grey[800]!;
+      return LinearGradient(
+        colors: [Colors.grey[700]!, Colors.grey[900]!],
+        begin: Alignment.topLeft,
+        end: Alignment.bottomRight,
+      );
     default:
-      return Colors.transparent;
+      return null;
   }
 }

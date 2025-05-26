@@ -2,6 +2,7 @@ import 'package:community_impact_tracker/main_pages/events/events_page.dart';
 import 'package:community_impact_tracker/main_pages/leaderboard/leaderboard_page.dart';
 import 'package:community_impact_tracker/main_pages/shop/cart_provider.dart';
 import 'package:community_impact_tracker/main_pages/shop/shop_page.dart';
+import 'package:community_impact_tracker/theme/theme.dart';
 import 'package:flutter/material.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_auth/firebase_auth.dart';
@@ -13,9 +14,14 @@ import 'firebase_options.dart';
 import 'outer_pages/admin_panel.dart';
 import 'package:community_impact_tracker/theme/theme_provider.dart';
 import 'dart:ui';
+import 'package:flutter/services.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+
+  // Enable immersive sticky mode
+  SystemChrome.setEnabledSystemUIMode(SystemUiMode.immersiveSticky);
+
   await Firebase.initializeApp(
     options: DefaultFirebaseOptions.currentPlatform,
   );
@@ -28,8 +34,7 @@ void main() async {
     MultiProvider(
       providers: [
         ChangeNotifierProvider(create: (_) => CartProvider()),
-        ChangeNotifierProvider(
-            create: (_) => ThemeProvider()), // Add ThemeProvider
+        ChangeNotifierProvider(create: (_) => ThemeProvider()),
       ],
       child: const MyApp(),
     ),
@@ -60,48 +65,6 @@ class MyApp extends StatelessWidget {
 // Utility function to check if the theme is dark
 bool isDarkTheme(BuildContext context) {
   return Theme.of(context).brightness == Brightness.dark;
-}
-
-class TransparentAppBar extends StatelessWidget implements PreferredSizeWidget {
-  final Widget title;
-  final List<Widget>? actions;
-  final Widget? leading;
-
-  const TransparentAppBar({
-    required this.title,
-    this.actions,
-    this.leading,
-    Key? key,
-  }) : super(key: key);
-
-  @override
-  Widget build(BuildContext context) {
-    return ClipRect(
-      child: BackdropFilter(
-        filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
-        child: AppBar(
-          centerTitle: true,
-          backgroundColor: isDarkTheme(context)
-              ? Colors.transparent
-              : Colors.white.withOpacity(
-                  0.2), // transparent for dark theme, semi-transparent for light
-          shape: const RoundedRectangleBorder(
-            borderRadius: BorderRadius.only(
-              bottomLeft: Radius.circular(20),
-              bottomRight: Radius.circular(20),
-            ),
-          ),
-          elevation: 0,
-          title: title,
-          actions: actions,
-          leading: leading,
-        ),
-      ),
-    );
-  }
-
-  @override
-  Size get preferredSize => const Size.fromHeight(kToolbarHeight);
 }
 
 class AuthenticationWrapper extends StatelessWidget {
@@ -178,8 +141,10 @@ class MainPage extends StatefulWidget {
   _MainPageState createState() => _MainPageState();
 }
 
-class _MainPageState extends State<MainPage> {
+class _MainPageState extends State<MainPage>
+    with SingleTickerProviderStateMixin {
   late int _selectedIndex;
+  AnimationController? _gradientController;
 
   final List<Widget> _pages = <Widget>[
     EventsPage(),
@@ -192,6 +157,16 @@ class _MainPageState extends State<MainPage> {
   void initState() {
     super.initState();
     _selectedIndex = widget.initialIndex;
+    _gradientController = AnimationController(
+      vsync: this,
+      duration: const Duration(seconds: 10),
+    )..repeat(reverse: true);
+  }
+
+  @override
+  void dispose() {
+    _gradientController?.dispose();
+    super.dispose();
   }
 
   void _onItemTapped(int index) {
@@ -202,15 +177,23 @@ class _MainPageState extends State<MainPage> {
 
   @override
   Widget build(BuildContext context) {
+    final themeProvider = Provider.of<ThemeProvider>(context);
+    final isGradient = themeProvider.appThemeMode == AppThemeMode.gradient;
+
     return Scaffold(
       body: Stack(
         children: [
+          // Only show animated gradient if gradient theme is selected
+          if (isGradient && _gradientController != null)
+            Positioned.fill(
+              child: GradientThemeData.shaderBackground(_gradientController!),
+            ),
           IndexedStack(
             index: _selectedIndex,
             children: _pages,
           ),
           Positioned(
-            bottom: -5,
+            bottom: -10,
             left: 0,
             right: 0,
             child: Container(
@@ -218,9 +201,9 @@ class _MainPageState extends State<MainPage> {
               decoration: BoxDecoration(
                 boxShadow: [
                   BoxShadow(
-                    color: const Color.fromARGB(150, 0, 0, 0),
+                    color: const Color.fromARGB(130, 0, 0, 0),
                     blurRadius: 40,
-                    spreadRadius: 15,
+                    spreadRadius: 10,
                     offset: Offset(0, 15),
                   ),
                 ],
@@ -236,11 +219,14 @@ class _MainPageState extends State<MainPage> {
         child: ClipRRect(
           borderRadius: BorderRadius.circular(20),
           child: BackdropFilter(
-            filter: ImageFilter.blur(sigmaX: 15.0, sigmaY: 15.0),
+            filter: ImageFilter.blur(sigmaX: 10.0, sigmaY: 10.0),
             child: Container(
               decoration: BoxDecoration(
-                color: Colors.white
-                    .withOpacity(0.2), // Semi-transparent for blur effect
+                gradient: const LinearGradient(
+                  begin: Alignment.topCenter,
+                  end: Alignment.bottomCenter,
+                  colors: [Colors.white60, Colors.white10],
+                ),
                 borderRadius: BorderRadius.circular(20),
                 border: Border.all(
                   color: isDarkTheme(context)

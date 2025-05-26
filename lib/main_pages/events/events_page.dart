@@ -530,6 +530,7 @@ class _EventsPageState extends State<EventsPage> with TickerProviderStateMixin {
     bool showSignedUpSection = this.showSignedUpSection;
 
     return Scaffold(
+      backgroundColor: Colors.transparent,
       appBar: AppBar(
         forceMaterialTransparency: true,
         centerTitle: true,
@@ -570,12 +571,23 @@ class _EventsPageState extends State<EventsPage> with TickerProviderStateMixin {
                     width: 42,
                     height: 42,
                     decoration: BoxDecoration(
-                      color: Colors.transparent,
+                      gradient: const LinearGradient(
+                        begin: Alignment.topLeft,
+                        end: Alignment.bottomCenter,
+                        colors: [Colors.white60, Colors.white10],
+                      ),
                       borderRadius: BorderRadius.circular(10),
                       border: Border.all(
                         color: const Color.fromARGB(80, 124, 124, 124),
                         width: 2,
                       ),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.black.withOpacity(0.1),
+                          blurRadius: 6,
+                          offset: Offset(0, 3),
+                        ),
+                      ],
                     ),
                     child: ClipRRect(
                       borderRadius: BorderRadius.circular(10),
@@ -646,12 +658,23 @@ class _EventsPageState extends State<EventsPage> with TickerProviderStateMixin {
                     width: 42,
                     height: 42,
                     decoration: BoxDecoration(
-                      color: Colors.transparent,
+                      gradient: const LinearGradient(
+                        begin: Alignment.topLeft,
+                        end: Alignment.bottomCenter,
+                        colors: [Colors.white60, Colors.white10],
+                      ),
                       borderRadius: BorderRadius.circular(10),
                       border: Border.all(
                         color: const Color.fromARGB(80, 124, 124, 124),
                         width: 2,
                       ),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.black.withOpacity(0.1),
+                          blurRadius: 6,
+                          offset: Offset(0, 3),
+                        ),
+                      ],
                     ),
                     child: ClipRRect(
                       borderRadius: BorderRadius.circular(10),
@@ -741,49 +764,82 @@ class _EventsPageState extends State<EventsPage> with TickerProviderStateMixin {
               child: Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 16.0),
                 child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Wrap(
-                      spacing: 6, // Reduced spacing between chips
-                      runSpacing: 4,
-                      children: ['ongoing', 'recently ended', 'upcoming']
-                          .map((filter) {
-                        return ChoiceChip(
-                          label: Text(
-                            textHeightBehavior: TextHeightBehavior(
-                                applyHeightToFirstAscent: false),
-                            filter,
-                            style: TextStyle(fontSize: 12), // Reduced font size
-                          ),
-                          backgroundColor:
-                              Colors.transparent, // Semi-transparent background
-                          selectedColor:
-                              Color(0xFF71CD8C), // Updated selected color
-                          selected: selectedFilter == filter,
-                          showCheckmark: false,
-                          onSelected: (bool selected) {
-                            if (selected) {
+                    Expanded(
+                      // 👈 Ensures Wrap stretches and doesn't leave whitespace
+                      child: Wrap(
+                        spacing: 7, // Reduced spacing between chips
+                        runSpacing: 4,
+                        children: ['ongoing', 'recently ended', 'upcoming']
+                            .map((filter) {
+                          bool isSelected = selectedFilter == filter;
+
+                          return GestureDetector(
+                            onTap: () {
                               _updateFilter(filter);
-                            }
-                          },
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(
-                                16), // Slightly smaller border radius
-                            side: BorderSide(
-                              color: const Color.fromARGB(
-                                  80, 124, 124, 124), // Updated border color
-                              width: 2, // Reduced border width
+                            },
+                            child: AnimatedContainer(
+                              duration: const Duration(milliseconds: 300),
+                              curve: Curves.easeInOut,
+                              padding: const EdgeInsets.symmetric(
+                                  vertical: 7, horizontal: 14),
+                              decoration: BoxDecoration(
+                                gradient: isSelected
+                                    ? const LinearGradient(
+                                        colors: [
+                                          Color.fromARGB(213, 113, 205, 141),
+                                          Color(0xFF71CD8C)
+                                        ],
+                                        begin: Alignment.topLeft,
+                                        end: Alignment.bottomRight,
+                                      )
+                                    : const LinearGradient(
+                                        begin: Alignment.topLeft,
+                                        end: Alignment.bottomCenter,
+                                        colors: [
+                                          Colors.white60,
+                                          Colors.white10
+                                        ],
+                                      ),
+                                borderRadius: BorderRadius.circular(16),
+                                border: Border.all(
+                                  color:
+                                      const Color.fromARGB(80, 124, 124, 124),
+                                  width: 2,
+                                ),
+                                boxShadow: [
+                                  BoxShadow(
+                                    color: Colors.black.withOpacity(0.1),
+                                    blurRadius: 4,
+                                    offset: const Offset(0, 2),
+                                  ),
+                                ],
+                              ),
+                              child: AnimatedDefaultTextStyle(
+                                duration: const Duration(milliseconds: 300),
+                                curve: Curves.easeInOut,
+                                style: TextStyle(
+                                  fontWeight: FontWeight.w500,
+                                  fontSize: 12,
+                                  color: isSelected
+                                      ? Colors.white
+                                      : Colors.grey[800],
+                                ),
+                                child: Text(
+                                  filter,
+                                  textHeightBehavior: const TextHeightBehavior(
+                                    applyHeightToFirstAscent: false,
+                                  ),
+                                ),
+                              ),
                             ),
-                          ),
-                          padding: EdgeInsets.symmetric(
-                              vertical: 5, horizontal: 7), // Reduced padding
-                          shadowColor: Colors.black.withOpacity(0.1),
-                          elevation:
-                              4, // Same elevation as calendar/notification buttons
-                        );
-                      }).toList(),
+                          );
+                        }).toList(),
+                      ),
                     ),
-                    Hspace(16), // Space between chips and sorting button
-                    // Sorting button
+                    Hspace(7), // Space between chips and sorting button
+                    // Sorting button remains unchanged
                     GestureDetector(
                       onTap: () {
                         _filterController.reset();
@@ -940,16 +996,24 @@ class _EventsPageState extends State<EventsPage> with TickerProviderStateMixin {
                         );
                       },
                       child: Container(
-                        width: 32,
-                        height: 32,
+                        width: 36,
+                        height: 36,
                         decoration: BoxDecoration(
-                          color: Colors.black.withOpacity(0.1),
-                          borderRadius: BorderRadius.circular(50),
+                          gradient: const LinearGradient(
+                            begin: Alignment.topLeft,
+                            end: Alignment.bottomCenter,
+                            colors: [Colors.white60, Colors.white10],
+                          ),
+                          border: Border.all(
+                            color: const Color.fromARGB(80, 124, 124, 124),
+                            width: 2,
+                          ),
+                          borderRadius: BorderRadius.circular(20),
                           boxShadow: [
                             BoxShadow(
-                              color: Colors.black.withOpacity(0.2),
-                              blurRadius: 4,
-                              offset: Offset(0, 2),
+                              color: Colors.black.withOpacity(0.1),
+                              blurRadius: 6,
+                              offset: const Offset(0, 3),
                             ),
                           ],
                         ),
