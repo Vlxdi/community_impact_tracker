@@ -1,5 +1,4 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:community_impact_tracker/main.dart';
 import 'package:flutter/material.dart';
 import '../../widgets/event_card.dart';
 
@@ -13,12 +12,13 @@ class MyEventsArchive extends StatefulWidget {
 }
 
 class _MyEventsArchiveState extends State<MyEventsArchive> {
-  late final Future<List<Map<String, dynamic>>> _archivedEventsFuture;
+  Future<List<Map<String, dynamic>>>? _archivedEventsFuture;
 
   @override
   void initState() {
     super.initState();
-    _archivedEventsFuture = _fetchArchivedEvents();
+    // Only fetch once
+    _archivedEventsFuture ??= _fetchArchivedEvents();
   }
 
   Future<List<Map<String, dynamic>>> _fetchArchivedEvents() async {
@@ -32,34 +32,43 @@ class _MyEventsArchiveState extends State<MyEventsArchive> {
           .collection('events')
           .get();
 
-      final Set<String> userEventIds =
-          userEventsSnapshot.docs.map((doc) => doc.id).toSet();
+      // Only include events where 'absentReason' field does NOT exist
+      final userEventDocs = userEventsSnapshot.docs
+          .where((doc) => !doc.data().containsKey('absentReason'))
+          .toList();
 
       // Fetch events from the global collection
       final globalEventsSnapshot = await firestore.collection('events').get();
+      final Map<String, dynamic> globalEventsMap = {
+        for (var doc in globalEventsSnapshot.docs) doc.id: doc.data()
+      };
 
-      // Filter and map events that exist in both collections
-      final archivedEvents = globalEventsSnapshot.docs
-          .where((doc) => userEventIds.contains(doc.id))
-          .map((doc) {
-        final data = doc.data() as Map<String, dynamic>;
+      // Build archived events using the user's event status
+      final archivedEvents = userEventDocs.map((userDoc) {
+        final eventId = userDoc.id;
+        final userData = userDoc.data();
+        final globalData = globalEventsMap[eventId] ?? {};
+
         return {
-          'eventId': doc.id,
-          'name': data['name'] ?? 'Unnamed Event',
-          'description': data['description'] ?? 'No description available',
-          'image': data['image'],
-          'startTime':
-              (data['startTime'] as Timestamp?)?.toDate() ?? DateTime.now(),
+          'eventId': eventId,
+          'name': globalData['name'] ?? 'Unnamed Event',
+          'description':
+              globalData['description'] ?? 'No description available',
+          'image': globalData['image'],
+          'startTime': (globalData['startTime'] as Timestamp?)?.toDate() ??
+              DateTime.now(),
           'endTime':
-              (data['endTime'] as Timestamp?)?.toDate() ?? DateTime.now(),
-          'rewardPoints': (data['rewardPoints'] as num?)?.toDouble() ?? 0.0,
-          'status': data['status'] ?? 'completed',
-          'createdDate':
-              (data['createdDate'] as Timestamp?)?.toDate() ?? DateTime.now(),
-          'latitude': data['latitude'] ?? 0.0,
-          'longitude': data['longitude'] ?? 0.0,
-          'maxParticipants': data['maxParticipants'] ?? 0,
-          'currentParticipants': data['currentParticipants'] ?? 0,
+              (globalData['endTime'] as Timestamp?)?.toDate() ?? DateTime.now(),
+          'rewardPoints':
+              (globalData['rewardPoints'] as num?)?.toDouble() ?? 0.0,
+          // Use the user's event status if available, otherwise fallback to global
+          'status': userData['status'] ?? globalData['status'] ?? 'completed',
+          'createdDate': (globalData['createdDate'] as Timestamp?)?.toDate() ??
+              DateTime.now(),
+          'latitude': globalData['latitude'] ?? 0.0,
+          'longitude': globalData['longitude'] ?? 0.0,
+          'maxParticipants': globalData['maxParticipants'] ?? 0,
+          'currentParticipants': globalData['currentParticipants'] ?? 0,
         };
       }).toList();
 

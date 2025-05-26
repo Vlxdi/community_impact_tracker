@@ -32,7 +32,6 @@ class _LoginPageState extends State<LoginPage>
   //final String _phone = '';
   //final String _verificationId = '';
   bool _isRegistering = false;
-  bool _rememberMe = false;
   // List of countries for dropdown
   final List<String> _countries = countries;
 
@@ -186,6 +185,14 @@ class _LoginPageState extends State<LoginPage>
           'total_points': 0.0, // Initial total points as double
           'level': 1, // Initial level of 0
         });
+
+        // Ensure user_events document is created with createdAt field
+        await _firestore
+            .collection('user_events')
+            .doc(userCredential.user?.uid)
+            .set({
+          'createdAt': FieldValue.serverTimestamp(),
+        }, SetOptions(merge: true));
 
         // Automatically navigate the user to the app
         Navigator.pushReplacement(
